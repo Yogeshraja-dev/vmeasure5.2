@@ -1,12 +1,11 @@
 package com.vmeasure.app.feature.userform
 
 /**
- * UI model for a measurement section before saving.
- * - type: "Blouse", "Kurti", etc.
- * - values: label -> string
- * - notes stored separately (still persisted into typed notes column)
+ * UI model for measurement section.
+ * sectionId is null for new/unsaved sections (Add flow), but always non-null for existing sections (Edit flow).
  */
 data class SectionForm(
+    val sectionId: String? = null,
     val type: String,
     val createdAtEpoch: Long,
     val values: Map<String, String> = emptyMap(),

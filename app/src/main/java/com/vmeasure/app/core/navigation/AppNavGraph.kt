@@ -9,7 +9,10 @@ import com.vmeasure.app.feature.lists.ListsScreen
 import com.vmeasure.app.feature.profile.ProfileScreen
 import com.vmeasure.app.feature.settings.SettingsScreen
 import com.vmeasure.app.feature.userform.AddUserScreen
-
+import androidx.navigation.NavType
+//import androidx.navigation.compose.navArgument
+import com.vmeasure.app.feature.details.DetailsScreen
+import androidx.navigation.navArgument
 @Composable
 fun AppNavGraph(
     navController: NavHostController
@@ -42,5 +45,21 @@ fun AppNavGraph(
         composable(Routes.SETTINGS) { SettingsScreen() }
         composable(Routes.CALENDAR) { CalendarScreen() }
         composable(Routes.PROFILE) { ProfileScreen() }
+
+        composable(
+            route = "${Routes.DETAILS}/{${Routes.DETAILS_ARG_USER_ID}}",
+            arguments = listOf(navArgument(Routes.DETAILS_ARG_USER_ID) { type = NavType.StringType })
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getString(Routes.DETAILS_ARG_USER_ID)!!
+            DetailsScreen(
+                publicUserId = userId,
+                onBack = { navController.popBackStack() },
+                onSaved = {
+                    navController.previousBackStackEntry?.savedStateHandle?.set("lists_refresh", true)
+                    navController.popBackStack()
+                }
+            )
+        }
+
     }
 }

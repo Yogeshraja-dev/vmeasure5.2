@@ -19,6 +19,8 @@ import com.vmeasure.app.data.db.entity.MeasurementSectionEntity
 import com.vmeasure.app.data.db.entity.UserEntity
 import com.vmeasure.app.feature.userform.SectionForm
 import kotlinx.coroutines.delay
+import com.vmeasure.app.feature.userform.UserFormUiState
+import androidx.room.withTransaction
 
 import androidx.sqlite.db.SimpleSQLiteQuery
 
@@ -493,6 +495,172 @@ class UserRepositoryImpl(
                 notes = sf.notes
             )
         }
+    }
+
+    override suspend fun loadUserWithSections(publicUserId: String): Pair<UserEntity, List<MeasurementSectionEntity>> {
+        return withContext(Dispatchers.IO) {
+            val user = userDao.getByPublicId(publicUserId)
+                ?: throw IllegalStateException("User not found")
+
+            val sections = sectionDao.getAllForUser(publicUserId)
+            user to sections
+        }
+    }
+
+    override suspend fun saveUserEdits(
+        publicUserId: String,
+        originalUser: UserEntity,
+        originalSections: List<MeasurementSectionEntity>,
+        updatedForm: UserFormUiState,
+        updatedSections: List<SectionForm>
+    ) {
+        withContext(Dispatchers.IO) {
+            db.withTransaction {
+                val now = DateTimeUtil.nowEpochMillis()
+
+                // --- USER change detection ---
+                val newName = updatedForm.name.trim()
+                val newNameNorm = newName.lowercase()
+                val newDob = updatedForm.dateOfBirth.trim()
+                val newSpecial = updatedForm.specialDate.trim()
+                val newSpecialEpoch = DateTimeUtil.parseDateToEpochDayStart(newSpecial)
+                val newContact = updatedForm.contactNumber.trim()
+                val newIg = updatedForm.instagramId.trim()
+                val newOther = updatedForm.otherMedia.trim()
+                val newLoc = updatedForm.location.trim()
+                val newFav = updatedForm.isFavorite
+                val newPin = updatedForm.isPinned
+
+                val userChangedExceptPinFav =
+                    (originalUser.name.trim() != newName) ||
+                            (originalUser.dateOfBirth.trim() != newDob) ||
+                            (originalUser.specialDate.trim() != newSpecial) ||
+                            (originalUser.contactNumber.trim() != newContact) ||
+                            (originalUser.instagramId.trim() != newIg) ||
+                            (originalUser.otherMedia.trim() != newOther) ||
+                            (originalUser.location.trim() != newLoc)
+
+                val shouldUpdateUserEditedAt = userChangedExceptPinFav
+
+                val updatedUser = originalUser.copy(
+                    name = newName,
+                    nameNormalized = newNameNorm,
+                    dateOfBirth = newDob,
+                    specialDate = newSpecial,
+                    specialDateEpoch = newSpecialEpoch,
+                    contactNumber = newContact,
+                    instagramId = newIg,
+                    otherMedia = newOther,
+                    location = newLoc,
+                    isFavorite = newFav,
+                    isPinned = newPin,
+                    editedAtEpoch = if (shouldUpdateUserEditedAt) now else originalUser.editedAtEpoch
+                )
+                userDao.update(updatedUser)
+
+                // --- SECTIONS diff rules ---
+                val originalById = originalSections.associateBy { it.sectionId }
+
+                val updatedExisting = updatedSections.filter { it.sectionId != null }
+                val updatedExistingIds = updatedExisting.map { it.sectionId!! }.toSet()
+
+                // Rule: do not delete sections that exist locally but are missing in updated list? (In Edit flow, user can delete sections)
+                // Your spec: Delete Section removes that section. So here we DO delete those removed in UI.
+                val removedIds = originalById.keys - updatedExistingIds
+                removedIds.forEach { removedId ->
+                    sectionDao.deleteByUserAndSectionId(publicUserId, removedId)
+                }
+
+                // Insert new sections (duplicates/new in edit)
+                val newOnes = updatedSections.filter { it.sectionId == null }
+                newOnes.forEach { sf ->
+                    val newSectionId = ensureUniqueSectionId(publicUserId)
+                    val createdAt = sf.createdAtEpoch
+                    val entity = mapSectionFormToEntity(
+                        publicUserId = publicUserId,
+                        sectionId = newSectionId,
+                        createdAtEpoch = createdAt,
+                        sf = sf
+                    )
+                    sectionDao.insert(entity)
+                }
+
+                // Update existing sections and set editedAt only if changed
+                updatedExisting.forEach { sf ->
+                    val id = sf.sectionId!!
+                    val old = originalById[id] ?: return@forEach
+
+                    val newEntityNoEditedAt = mapSectionFormToEntity(
+                        publicUserId = publicUserId,
+                        sectionId = id,
+                        createdAtEpoch = old.createdAtEpoch, // keep createdAt
+                        sf = sf
+                    ).copy(
+                        pk = old.pk,
+                        editedAtEpoch = old.editedAtEpoch
+                    )
+
+                    val changed = sectionChanged(old, newEntityNoEditedAt)
+                    val finalEntity = if (changed) newEntityNoEditedAt.copy(editedAtEpoch = now) else newEntityNoEditedAt
+                    sectionDao.update(finalEntity)
+                }
+            }
+        }
+    }
+
+    private fun sectionChanged(old: MeasurementSectionEntity, newE: MeasurementSectionEntity): Boolean {
+        // createdAt and ids ignored; compare content fields and type/notes
+        return old.type != newE.type ||
+                (old.notes ?: "") != (newE.notes ?: "") ||
+
+                (old.blouse_uBust ?: "") != (newE.blouse_uBust ?: "") ||
+                (old.blouse_bust ?: "") != (newE.blouse_bust ?: "") ||
+                (old.blouse_waist ?: "") != (newE.blouse_waist ?: "") ||
+                (old.blouse_hip ?: "") != (newE.blouse_hip ?: "") ||
+                (old.blouse_armhole ?: "") != (newE.blouse_armhole ?: "") ||
+                (old.blouse_shoulder ?: "") != (newE.blouse_shoulder ?: "") ||
+                (old.blouse_length ?: "") != (newE.blouse_length ?: "") ||
+                (old.blouse_fNeck ?: "") != (newE.blouse_fNeck ?: "") ||
+                (old.blouse_bNeck ?: "") != (newE.blouse_bNeck ?: "") ||
+                (old.blouse_sleeveLength ?: "") != (newE.blouse_sleeveLength ?: "") ||
+                (old.blouse_sleeveRound ?: "") != (newE.blouse_sleeveRound ?: "") ||
+
+                (old.kurti_blouseCut ?: "") != (newE.kurti_blouseCut ?: "") ||
+                (old.kurti_uBust ?: "") != (newE.kurti_uBust ?: "") ||
+                (old.kurti_bust ?: "") != (newE.kurti_bust ?: "") ||
+                (old.kurti_waist ?: "") != (newE.kurti_waist ?: "") ||
+                (old.kurti_armhole ?: "") != (newE.kurti_armhole ?: "") ||
+                (old.kurti_shoulder ?: "") != (newE.kurti_shoulder ?: "") ||
+                (old.kurti_blouse ?: "") != (newE.kurti_blouse ?: "") ||
+                (old.kurti_fNeck ?: "") != (newE.kurti_fNeck ?: "") ||
+                (old.kurti_bNeck ?: "") != (newE.kurti_bNeck ?: "") ||
+                (old.kurti_sleeveLength ?: "") != (newE.kurti_sleeveLength ?: "") ||
+                (old.kurti_sleeveRound ?: "") != (newE.kurti_sleeveRound ?: "") ||
+
+                (old.pant_waist ?: "") != (newE.pant_waist ?: "") ||
+                (old.pant_hip ?: "") != (newE.pant_hip ?: "") ||
+                (old.pant_length ?: "") != (newE.pant_length ?: "") ||
+                (old.pant_thighRound ?: "") != (newE.pant_thighRound ?: "") ||
+                (old.pant_kneeRound ?: "") != (newE.pant_kneeRound ?: "") ||
+                (old.pant_bottom ?: "") != (newE.pant_bottom ?: "") ||
+                (old.pant_inseam ?: "") != (newE.pant_inseam ?: "") ||
+
+                (old.frock_waist ?: "") != (newE.frock_waist ?: "") ||
+                (old.frock_frockLength ?: "") != (newE.frock_frockLength ?: "") ||
+                (old.frock_yokeLength ?: "") != (newE.frock_yokeLength ?: "") ||
+
+                (old.crop_blouseWaist ?: "") != (newE.crop_blouseWaist ?: "") ||
+                (old.crop_blouseLength ?: "") != (newE.crop_blouseLength ?: "") ||
+                (old.crop_skirtLength ?: "") != (newE.crop_skirtLength ?: "") ||
+                (old.crop_waistLength ?: "") != (newE.crop_waistLength ?: "") ||
+
+                (old.kids_chest ?: "") != (newE.kids_chest ?: "") ||
+                (old.kids_waist ?: "") != (newE.kids_waist ?: "") ||
+                (old.kids_length ?: "") != (newE.kids_length ?: "") ||
+                (old.kids_shoulder ?: "") != (newE.kids_shoulder ?: "") ||
+                (old.kids_sleeveLength ?: "") != (newE.kids_sleeveLength ?: "") ||
+                (old.kids_pantLength ?: "") != (newE.kids_pantLength ?: "") ||
+                (old.kids_pantWaist ?: "") != (newE.kids_pantWaist ?: "")
     }
 
 }

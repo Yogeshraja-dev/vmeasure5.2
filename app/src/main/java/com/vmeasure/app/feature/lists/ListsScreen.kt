@@ -2,6 +2,7 @@ package com.vmeasure.app.feature.lists
 
 import android.content.Intent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -28,10 +29,12 @@ import androidx.paging.compose.itemKey
 import com.vmeasure.app.App
 import com.vmeasure.app.data.repository.UserRepositoryImpl
 import androidx.navigation.NavHostController
-
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.foundation.clickable
+import com.vmeasure.app.core.navigation.Routes
+
 
 @Composable
 fun ListsScreen(
@@ -158,9 +161,7 @@ fun ListsScreen(
                         onToggleFavorite = { vm.onToggleFavorite(user) },
                         onDelete = { vm.onDeleteUser(user) },
                         onShare = { vm.onShareUser(user) },
-                        onOpenDetails = {
-                            // Next milestone: navigate to Details screen
-                        }
+                        onOpenDetails = { navController.navigate(Routes.details(user.publicUserId)) }
                     )
                 }
 
@@ -223,7 +224,8 @@ private fun UserCard(
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier
                         .weight(1f)
-                        .padding(end = 8.dp),
+                        .padding(end = 8.dp)
+                        .clickable { onOpenDetails() },
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )

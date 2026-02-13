@@ -20,8 +20,11 @@ interface UserDao {
     @Query("DELETE FROM users WHERE publicUserId = :publicUserId")
     suspend fun deleteByPublicId(publicUserId: String)
 
+//    @Query("SELECT * FROM users WHERE publicUserId = :publicUserId LIMIT 1")
+//    suspend fun getByPublicId(publicUserId: String): UserEntity?
+
     @Query("SELECT * FROM users WHERE publicUserId = :publicUserId LIMIT 1")
-    suspend fun getByPublicId(publicUserId: String): UserEntity?
+    suspend fun getByPublicId(publicUserId: String): com.vmeasure.app.data.db.entity.UserEntity?
 
     /**
      * Base list query with pin-top and name sorting.
@@ -105,5 +108,41 @@ interface UserDao {
         ]
     )
     fun pagingUsersWithTagsObserved(query: SupportSQLiteQuery): PagingSource<Int, UserWithTagsRow>
+
+//    @Query("SELECT * FROM users WHERE publicUserId = :publicUserId LIMIT 1")
+//
+//    suspend fun getByPublicId(publicUserId: String): com.vmeasure.app.data.db.entity.UserEntity?
+
+    @Query("""
+    UPDATE users SET
+      name = :name,
+      nameNormalized = :nameNormalized,
+      dateOfBirth = :dateOfBirth,
+      specialDate = :specialDate,
+      specialDateEpoch = :specialDateEpoch,
+      contactNumber = :contactNumber,
+      instagramId = :instagramId,
+      otherMedia = :otherMedia,
+      location = :location,
+      isFavorite = :isFavorite,
+      isPinned = :isPinned,
+      editedAtEpoch = :editedAtEpoch
+    WHERE publicUserId = :publicUserId
+""")
+    suspend fun updateAllFieldsByPublicId(
+        publicUserId: String,
+        name: String,
+        nameNormalized: String,
+        dateOfBirth: String,
+        specialDate: String,
+        specialDateEpoch: Long?,
+        contactNumber: String,
+        instagramId: String,
+        otherMedia: String,
+        location: String,
+        isFavorite: Boolean,
+        isPinned: Boolean,
+        editedAtEpoch: Long?
+    )
 
 }
