@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.rememberDatePickerState
+import com.vmeasure.app.domain.model.TagType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,6 +45,7 @@ fun DetailsScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Customer Details") },
+                windowInsets = WindowInsets(0, 0, 0, 0),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Outlined.ArrowBack, contentDescription = "Back")
@@ -226,6 +228,17 @@ fun DetailsScreen(
                 )
             }
 
+            // Tags row (only in Edit mode) so user can add new sections
+            if (st.isEditMode) {
+                item {
+                    TagChipsRow(
+                        tags = TagType.fixedOrder,
+                        isSelected = { t -> st.sections.any { it.type == t.displayName } },
+                        onTagClick = { t -> vm.onTagTapped(t) }
+                    )
+                }
+            }
+
             if (st.error != null) {
                 item {
                     Text(
@@ -372,11 +385,38 @@ private fun MeasurementSectionCardDetails(
         Column(modifier = Modifier.padding(12.dp)) {
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = section.type,
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.weight(1f)
-                )
+                Column {
+                    Text(
+                        text = section.type,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "Created Time: ",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = DateTimeUtil.formatDateTime(section.createdAtEpoch),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "Edited Time: ",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = section.editedAtEpoch?.let {
+                                DateTimeUtil.formatDateTime(it)
+                            } ?: "-",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
                 if (showMenu) {
                     SectionMenu(onClearAll = onClearAll, onDuplicate = onDuplicate, onDelete = onDelete)
                 }
@@ -447,4 +487,27 @@ private fun measurementFieldsForType(type: String): List<String> = when (type) {
     "Crop Blouse and Skirt" -> listOf("Blouse Waist","Blouse Length","Skirt Length","Waist Length")
     "Kids Boy" -> listOf("Chest","Waist","Length","Shoulder","Sleeve Length","Pant Length","Pant Waist")
     else -> emptyList()
+}
+
+@Composable
+private fun TagChipsRow(
+    tags: List<TagType>,
+    isSelected: (TagType) -> Boolean,
+    onTagClick: (TagType) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp)) {
+        tags.chunked(3).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                row.forEach { tag ->
+                    val selected = isSelected(tag)
+                    FilterChip(
+                        selected = selected,
+                        onClick = { onTagClick(tag) },
+                        label = { Text(tag.displayName) }
+                    )
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+        }
+    }
 }

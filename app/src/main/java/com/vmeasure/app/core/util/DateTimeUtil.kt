@@ -32,4 +32,10 @@ object DateTimeUtil {
             null
         }
     }
+
+    fun formatDateTime(epochMillis: Long): String {
+        val sdf = java.text.SimpleDateFormat("dd/MM/yyyy hh:mm a", java.util.Locale.US)
+        return sdf.format(java.util.Date(epochMillis))
+    }
+
 }

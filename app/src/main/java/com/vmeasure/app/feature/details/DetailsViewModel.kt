@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.vmeasure.app.domain.model.TagType
+import com.vmeasure.app.core.util.DateTimeUtil
 
 class DetailsViewModel(
     private val repo: UserRepository,
@@ -148,6 +150,47 @@ class DetailsViewModel(
             }
         }
     }
+
+    fun onTagTapped(tag: TagType) {
+        _uiState.update { st ->
+            // If section exists for that tag, do nothing (later we can scroll)
+            if (st.sections.any { it.type == tag.displayName }) return@update st
+
+            val now = DateTimeUtil.nowEpochMillis()
+            val newSec = SectionForm(
+                sectionId = null, // new section in edit mode
+                type = tag.displayName,
+                createdAtEpoch = now,
+                values = emptyMap(),
+                notes = ""
+            )
+
+            // Insert respecting tag order
+            val updated = insertSectionGrouped(st.sections, newSec)
+            st.copy(sections = updated)
+        }
+    }
+
+    private fun insertSectionGrouped(current: List<SectionForm>, newSec: SectionForm): List<SectionForm> {
+        val tagOrder = TagType.fixedOrder.map { it.displayName }
+
+        val grouped = current.groupBy { it.type }.toMutableMap()
+        val listForType = (grouped[newSec.type] ?: emptyList()).toMutableList()
+        listForType.add(newSec)
+        grouped[newSec.type] = listForType
+
+        val rebuilt = mutableListOf<SectionForm>()
+        tagOrder.forEach { t ->
+            grouped[t]?.let { rebuilt.addAll(it.sortedBy { s -> s.createdAtEpoch }) }
+        }
+        // any unknown types at end
+        grouped.keys.filter { it !in tagOrder }.sorted().forEach { k ->
+            rebuilt.addAll(grouped[k] ?: emptyList())
+        }
+
+        return rebuilt
+    }
+
 }
 
 private fun UserEntity.toForm(): UserFormUiState = UserFormUiState(
@@ -234,7 +277,9 @@ private fun MeasurementSectionEntity.toForm(): SectionForm {
         sectionId = sectionId,
         type = type,
         createdAtEpoch = createdAtEpoch,
+        editedAtEpoch = editedAtEpoch,
         values = values,
         notes = notes?.orEmpty() ?: ""
     )
+
 }

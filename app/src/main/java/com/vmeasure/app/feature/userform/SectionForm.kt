@@ -8,6 +8,7 @@ data class SectionForm(
     val sectionId: String? = null,
     val type: String,
     val createdAtEpoch: Long,
+    val editedAtEpoch: Long? = null,
     val values: Map<String, String> = emptyMap(),
     val notes: String = ""
 )

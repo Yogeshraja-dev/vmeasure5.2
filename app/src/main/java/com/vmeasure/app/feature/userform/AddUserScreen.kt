@@ -2,6 +2,7 @@ package com.vmeasure.app.feature.userform
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -196,8 +197,8 @@ fun AddUserScreen(
                 item {
                     TagChipsRow(
                         tags = vm.tagOrder,
-                        isSelected = { t -> vm.hasSectionFor(t) },
-                        onTagClick = { t ->
+                        isSelected = { t -> sections.any { it.type == t.displayName } },
+                                onTagClick = { t ->
                             if (vm.hasSectionFor(t)) {
                                 // scroll to existing first section
                                 val idx = firstIndexByType[t.displayName]
@@ -224,8 +225,11 @@ fun AddUserScreen(
                 }
 
                 // Sections
-                items(sections.size) { index ->
-                    val sec = sections[index]
+                // Sections (use stable keys so UI refreshes correctly after delete)
+                itemsIndexed(
+                    items = sections,
+                    key = { _, sec -> sec.createdAtEpoch } // unique enough for Add flow
+                ) { index, sec ->
                     MeasurementSectionCard(
                         section = sec,
                         onClearAll = { vm.clearSectionAt(index) },
