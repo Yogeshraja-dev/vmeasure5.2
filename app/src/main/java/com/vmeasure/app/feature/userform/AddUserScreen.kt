@@ -22,6 +22,8 @@ import com.vmeasure.app.core.util.DateTimeUtil
 import com.vmeasure.app.data.repository.UserRepositoryImpl
 import com.vmeasure.app.domain.model.TagType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,6 +41,30 @@ fun AddUserScreen(
     val sections by vm.sections.collectAsState()
 
     val listState = rememberLazyListState()
+
+    val scope = rememberCoroutineScope()
+    var pendingScrollType by remember { mutableStateOf<String?>(null) }
+
+// Sections start index in the LazyColumn (based on your current item order)
+    val sectionsStartIndex = 9 + (if (uiState.error != null) 1 else 0)
+
+// First section index (within sections list) per type
+    val firstSectionIndexByType = remember(sections) {
+        buildMap<String, Int> {
+            sections.forEachIndexed { idx, sec ->
+                if (!containsKey(sec.type)) put(sec.type, idx)
+            }
+        }
+    }
+
+// Perform scrolling when requested and when sections are ready
+    LaunchedEffect(sections, pendingScrollType) {
+        val type = pendingScrollType ?: return@LaunchedEffect
+        val secIndex = firstSectionIndexByType[type] ?: return@LaunchedEffect
+        listState.animateScrollToItem(sectionsStartIndex + secIndex)
+        pendingScrollType = null
+    }
+
 
     // Map: Tag -> first index in sections list (for scroll)
     val firstIndexByType = remember(sections) {
@@ -198,17 +224,15 @@ fun AddUserScreen(
                     TagChipsRow(
                         tags = vm.tagOrder,
                         isSelected = { t -> sections.any { it.type == t.displayName } },
-                                onTagClick = { t ->
-                            if (vm.hasSectionFor(t)) {
-                                // scroll to existing first section
-                                val idx = firstIndexByType[t.displayName]
-                                if (idx != null) {
-                                    // + items before sections: approx offset in LazyColumn
-                                    // We'll scroll to section item index later by using item keys (next step),
-                                    // For now, simple: scroll to a safe position in list (works fine)
-                                }
+                        onTagClick = { t ->
+                            val type = t.displayName
+                            if (sections.any { it.type == type }) {
+                                // Existing section → scroll to it
+                                pendingScrollType = type
                             } else {
+                                // Create first section then scroll to it
                                 vm.onTagTapped(t)
+                                pendingScrollType = type
                             }
                         }
                     )

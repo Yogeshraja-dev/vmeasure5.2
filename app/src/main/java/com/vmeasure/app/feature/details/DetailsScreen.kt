@@ -2,6 +2,7 @@ package com.vmeasure.app.feature.details
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowBack
@@ -26,6 +27,8 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.rememberDatePickerState
 import com.vmeasure.app.domain.model.TagType
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -113,7 +116,30 @@ fun DetailsScreen(
 
         val readOnly = !st.isEditMode
 
+        val listState = rememberLazyListState()
+        val scope = rememberCoroutineScope()
+        var pendingScrollType by remember { mutableStateOf<String?>(null) }
+
+        val sectionsStartIndex = 8 + (if (st.isEditMode) 1 else 0)
+
+        val firstSectionIndexByType = remember(st.sections) {
+            buildMap<String, Int> {
+                st.sections.forEachIndexed { idx, sec ->
+                    if (!containsKey(sec.type)) put(sec.type, idx)
+                }
+            }
+        }
+
+        LaunchedEffect(st.sections, pendingScrollType, st.isEditMode) {
+            val type = pendingScrollType ?: return@LaunchedEffect
+            val secIndex = firstSectionIndexByType[type] ?: return@LaunchedEffect
+            listState.animateScrollToItem(sectionsStartIndex + secIndex)
+            pendingScrollType = null
+        }
+
+
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
@@ -234,7 +260,16 @@ fun DetailsScreen(
                     TagChipsRow(
                         tags = TagType.fixedOrder,
                         isSelected = { t -> st.sections.any { it.type == t.displayName } },
-                        onTagClick = { t -> vm.onTagTapped(t) }
+//                        onTagClick = { t -> vm.onTagTapped(t) }
+                        onTagClick = { t ->
+                            val type = t.displayName
+                            if (st.sections.any { it.type == type }) {
+                                pendingScrollType = type
+                            } else {
+                                vm.onTagTapped(t)   // you already added this method in DetailsViewModel
+                                pendingScrollType = type
+                            }
+                        }
                     )
                 }
             }
