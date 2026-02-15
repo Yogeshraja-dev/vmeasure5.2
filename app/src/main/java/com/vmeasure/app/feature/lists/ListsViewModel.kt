@@ -28,26 +28,64 @@ class ListsViewModel(
 
     private val toggleJobs = mutableMapOf<String, Job>() // key: "<userId>:pin" or "<userId>:fav"
 
-    val usersPaging: Flow<PagingData<UserSummary>> =
-        uiState
-            .debounce(250)
-            .distinctUntilChanged()
-            .flatMapLatest { state ->
-                Pager(
-                    config = PagingConfig(
-                        pageSize = 100,
-                        prefetchDistance = 20,
-                        enablePlaceholders = false
-                    ),
-                    pagingSourceFactory = {
-                        repo.pagingUserRows(
-                            search = state.searchText.trim().lowercase().ifEmpty { null },
-                            nameSortAsc = state.nameSortAsc
-                        )
-                    }
-                ).flow
-            }
-            .map { pagingData ->
+//    val usersPaging: Flow<PagingData<UserSummary>> =
+//        uiState
+//            .debounce(250)
+//            .distinctUntilChanged()
+//            .flatMapLatest { state ->
+//                Pager(
+//                    config = PagingConfig(
+//                        pageSize = 100,
+//                        prefetchDistance = 20,
+//                        enablePlaceholders = false
+//                    ),
+//                    pagingSourceFactory = {
+//                        repo.pagingUserRows(
+//                            search = state.searchText.trim().lowercase().ifEmpty { null },
+//                            nameSortAsc = state.nameSortAsc
+//                        )
+//                    }
+//                ).flow
+//            }
+//            .map { pagingData ->
+//                pagingData.map { row ->
+//                    val tags = row.tagsCsv
+//                        ?.split(",")
+//                        ?.map { it.trim() }
+//                        ?.filter { it.isNotEmpty() }
+//                        ?: emptyList()
+//
+//                    UserSummary(
+//                        publicUserId = row.publicUserId,
+//                        name = row.name,
+//                        isPinned = row.isPinned,
+//                        isFavorite = row.isFavorite,
+//                        createdAtEpoch = row.createdAtEpoch,
+//                        tags = tags
+//                    )
+//                }
+//            }
+//            .cachedIn(viewModelScope)
+
+    val usersPaging = uiState
+        .debounce(250)
+        .distinctUntilChanged()
+        .flatMapLatest { state ->
+            Pager(
+                config = PagingConfig(
+                    pageSize = 100,
+                    prefetchDistance = 20,
+                    enablePlaceholders = false
+                ),
+                pagingSourceFactory = {
+                    repo.pagingUserRows(
+                        search = state.searchText.trim().lowercase().ifEmpty { null },
+                        filters = state.filters
+                    )
+                }
+            ).flow
+        }
+        .map { pagingData ->
                 pagingData.map { row ->
                     val tags = row.tagsCsv
                         ?.split(",")
@@ -65,7 +103,8 @@ class ListsViewModel(
                     )
                 }
             }
-            .cachedIn(viewModelScope)
+        .cachedIn(viewModelScope)
+
 
     fun onSearchChanged(text: String) {
         _uiState.update { it.copy(searchText = text) }
@@ -126,4 +165,13 @@ class ListsViewModel(
         val isPinned: Boolean? = null,
         val isFavorite: Boolean? = null
     )
+
+    fun updateSearch(text: String) {
+        _uiState.value = _uiState.value.copy(searchText = text)
+    }
+
+    fun applyFilters(newFilters: ListFilters) {
+        _uiState.value = _uiState.value.copy(filters = newFilters)
+    }
+
 }

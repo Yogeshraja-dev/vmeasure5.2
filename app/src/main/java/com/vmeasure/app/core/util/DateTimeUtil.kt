@@ -38,4 +38,15 @@ object DateTimeUtil {
         return sdf.format(java.util.Date(epochMillis))
     }
 
+    fun parseDateToEpochDayStartOrNull(ddMMyyyy: String): Long? {
+        val t = ddMMyyyy.trim()
+        if (t.isEmpty()) return null
+        return runCatching { parseDateToEpochDayStart(t) }.getOrNull()
+    }
+
+    fun parseDateToEpochDayEndOrNull(ddMMyyyy: String): Long? {
+        val start = parseDateToEpochDayStartOrNull(ddMMyyyy) ?: return null
+        return start + (24L * 60L * 60L * 1000L) - 1L
+    }
+
 }

@@ -6,7 +6,7 @@ import com.vmeasure.app.data.db.entity.UserEntity
 
 import androidx.room.RawQuery
 import androidx.sqlite.db.SupportSQLiteQuery
-
+import com.vmeasure.app.data.db.entity.MeasurementSectionEntity
 
 @Dao
 interface UserDao {
@@ -101,11 +101,16 @@ interface UserDao {
     @Query("SELECT * FROM users WHERE publicUserId = :publicUserId LIMIT 1")
     suspend fun getUserByPublicId(publicUserId: String): com.vmeasure.app.data.db.entity.UserEntity?
 
+//    @RawQuery(
+//        observedEntities = [
+//            com.vmeasure.app.data.db.entity.UserEntity::class,
+//            com.vmeasure.app.data.db.entity.MeasurementSectionEntity::class
+//        ]
+//    )
+//    fun pagingUsersWithTagsObserved(query: SupportSQLiteQuery): PagingSource<Int, UserWithTagsRow>
+
     @RawQuery(
-        observedEntities = [
-            com.vmeasure.app.data.db.entity.UserEntity::class,
-            com.vmeasure.app.data.db.entity.MeasurementSectionEntity::class
-        ]
+        observedEntities = [UserEntity::class, MeasurementSectionEntity::class]
     )
     fun pagingUsersWithTagsObserved(query: SupportSQLiteQuery): PagingSource<Int, UserWithTagsRow>
 

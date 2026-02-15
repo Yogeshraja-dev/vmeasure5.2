@@ -34,8 +34,16 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.foundation.clickable
 import com.vmeasure.app.core.navigation.Routes
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+//import androidx.compose.material3.ModalBottomSheet
+import com.vmeasure.app.domain.model.TagType
+import com.vmeasure.app.feature.lists.DateSortOption
+import com.vmeasure.app.feature.lists.NameSortOption
+import com.vmeasure.app.feature.lists.ListFilters
+import androidx.compose.material3.rememberModalBottomSheetState
 
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ListsScreen(
     navController: NavHostController,
@@ -53,6 +61,14 @@ fun ListsScreen(
     val overrides by vm.overrides.collectAsState()
 
     val pagingItems = vm.usersPaging.collectAsLazyPagingItems()
+
+    var showFilters by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+// copy of currently applied filters for editing inside sheet
+    val appliedFilters = vm.uiState.collectAsState().value.filters
+    var draftFilters by remember(showFilters) { mutableStateOf(appliedFilters) }
+
 
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -125,7 +141,11 @@ fun ListsScreen(
                 Spacer(modifier = Modifier.width(10.dp))
 
                 IconButton(
-                    onClick = vm::onFilterClicked,
+//                    onClick = vm::onFilterClicked,
+                    onClick = {
+                        draftFilters = appliedFilters
+                        showFilters = true
+                    },
                     modifier = Modifier
                         .size(44.dp)
                         .shadow(1.dp, RoundedCornerShape(12.dp))
@@ -192,6 +212,56 @@ fun ListsScreen(
             Icon(Icons.Filled.Add, contentDescription = "Add")
         }
     }
+
+//    if (showFilters) {
+//        ModalBottomSheet(
+//            onDismissRequest = { showFilters = false },
+//            sheetState = sheetState
+//        ) {
+//            FiltersSheetContent(
+//                filters = draftFilters,
+//                onChange = { draftFilters = it },
+//                onApply = {
+//                    vm.applyFilters(draftFilters)
+//                    showFilters = false
+//                },
+//                onClose = { showFilters = false }
+//            )
+//            Spacer(Modifier.height(12.dp))
+//        }
+//    }
+
+    if (showFilters) {
+        ModalBottomSheet(
+            onDismissRequest = { showFilters = false },
+            sheetState = sheetState
+        ) {
+            // 70–80% height requirement (use 0.8f)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.8f)
+            ) {
+                FiltersSheetContent(
+                    filters = draftFilters,
+                    onChange = { draftFilters = it },
+                    onApply = {
+                        vm.applyFilters(draftFilters)
+                        showFilters = false
+                    },
+                    onReset = {
+                        val reset = ListFilters()
+                        draftFilters = reset
+                        vm.applyFilters(reset)
+                        showFilters = false
+                    },
+                    onClose = { showFilters = false }
+                )
+            }
+        }
+    }
+
+
 }
 
 @Composable

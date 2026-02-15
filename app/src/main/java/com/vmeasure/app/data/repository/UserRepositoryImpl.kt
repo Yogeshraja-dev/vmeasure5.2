@@ -23,13 +23,15 @@ import com.vmeasure.app.feature.userform.UserFormUiState
 import androidx.room.withTransaction
 
 import androidx.sqlite.db.SimpleSQLiteQuery
+import com.vmeasure.app.feature.lists.ListFilters
+import com.vmeasure.app.feature.lists.NameSortOption
+import com.vmeasure.app.feature.lists.DateSortOption
 
 class UserRepositoryImpl(
 //    private val userDao: UserDao,
 //    private val sectionDao: SectionDao,
     private val db: AppDatabase
 ) : UserRepository {
-
     private val userDao = db.userDao()
     private val sectionDao = db.sectionDao()
 
@@ -256,14 +258,14 @@ class UserRepositoryImpl(
         return out
     }
 
-    override fun pagingUserRows(search: String?, nameSortAsc: Boolean)
-            : PagingSource<Int, UserWithTagsRow> {
-
-        return userDao.pagingUsersWithTags(
-            search = search?.trim()?.lowercase(),
-            nameSortAsc = if (nameSortAsc) 1 else 0
-        )
-    }
+//    override fun pagingUserRows(search: String?, nameSortAsc: Boolean)
+//            : PagingSource<Int, UserWithTagsRow> {
+//
+//        return userDao.pagingUsersWithTags(
+//            search = search?.trim()?.lowercase(),
+//            nameSortAsc = if (nameSortAsc) 1 else 0
+//        )
+//    }
 
 //    private class MappingPagingSource(
 //        private val delegate: PagingSource<Int, UserWithTagsRow>
@@ -345,7 +347,7 @@ class UserRepositoryImpl(
                     otherMedia = otherMedia.trim(),
                     location = location.trim(),
                     createdAtEpoch = now,
-                    editedAtEpoch = null
+                    editedAtEpoch = now,
                 )
 
                 userDao.insert(user)
@@ -662,5 +664,169 @@ class UserRepositoryImpl(
                 (old.kids_pantLength ?: "") != (newE.kids_pantLength ?: "") ||
                 (old.kids_pantWaist ?: "") != (newE.kids_pantWaist ?: "")
     }
+
+    override fun pagingUserRows(search: String?, filters: ListFilters)
+            : PagingSource<Int, com.vmeasure.app.data.db.dao.UserWithTagsRow> {
+
+        android.util.Log.d(
+            "FILTER_DEBUG",
+            "pagingUserRows search=$search filters=$filters"
+        )
+
+        val sql = StringBuilder()
+        val args = mutableListOf<Any>()
+
+        sql.append(
+            """
+        SELECT 
+            u.publicUserId AS publicUserId,
+            u.name AS name,
+            u.nameNormalized AS nameNormalized,
+            u.isPinned AS isPinned,
+            u.isFavorite AS isFavorite,
+            u.createdAtEpoch AS createdAtEpoch,
+            u.editedAtEpoch AS editedAtEpoch,
+            GROUP_CONCAT(DISTINCT s.type) AS tagsCsv
+        FROM users u
+        LEFT JOIN measurement_sections s
+          ON s.publicUserId = u.publicUserId
+        """
+        )
+
+        // WHERE conditions (user-level)
+        val where = mutableListOf<String>()
+
+        if (!search.isNullOrBlank()) {
+            where += """
+            (
+              u.nameNormalized LIKE '%' || ? || '%'
+              OR u.contactNumber LIKE '%' || ? || '%'
+            )
+        """.trimIndent()
+            val q = search.trim().lowercase()
+            args += q
+            args += q
+        }
+
+        if (filters.favouriteOnly) where += "u.isFavorite = 1"
+        if (filters.pinnedOnly) where += "u.isPinned = 1"
+
+        // --- Custom Edited Date filter (editedAtEpoch) ---
+// Show/hide handled in UI; repo enforces rules.
+// If dateSort = CUSTOM_EDITED_DATE:
+// - If editedFrom empty => no filter (default behavior)
+// - If editedTo empty => use current date
+// - Exclude editedAt nulls when filtering
+        val editedFromEpoch = DateTimeUtil.parseDateToEpochDayStartOrNull(filters.editedFrom)
+
+        val editedToEpoch = when {
+            filters.dateSort != DateSortOption.CUSTOM_EDITED_DATE -> null
+            filters.editedTo.trim().isNotEmpty() ->
+                DateTimeUtil.parseDateToEpochDayEndOrNull(filters.editedTo)
+            editedFromEpoch != null ->
+                DateTimeUtil.nowEpochMillis() // To empty => current date
+            else -> null
+        }
+
+        if (filters.dateSort == DateSortOption.CUSTOM_EDITED_DATE) {
+            if (editedFromEpoch != null) {
+                where += "u.editedAtEpoch IS NOT NULL AND u.editedAtEpoch >= ?"
+                args += editedFromEpoch
+            }
+            if (editedToEpoch != null) {
+                where += "u.editedAtEpoch IS NOT NULL AND u.editedAtEpoch <= ?"
+                args += editedToEpoch
+            }
+        }
+
+//        // Special Date range (uses specialDateEpoch; exclude nulls if filtering)
+//        val fromEpoch = DateTimeUtil.parseDateToEpochDayStartOrNull(filters.specialFrom)
+//        val toEpoch = DateTimeUtil.parseDateToEpochDayEndOrNull(filters.specialTo)
+//
+//        if (fromEpoch != null) {
+//            where += "u.specialDateEpoch IS NOT NULL AND u.specialDateEpoch >= ?"
+//            args += fromEpoch
+//        }
+//        if (toEpoch != null) {
+//            where += "u.specialDateEpoch IS NOT NULL AND u.specialDateEpoch <= ?"
+//            args += toEpoch
+//        }
+
+        // --- Special Date range filter (specialDateEpoch) ---
+// If To empty => current date (ONLY if From provided)
+// If From empty => default behavior (no filter)
+        val specialFromEpoch = DateTimeUtil.parseDateToEpochDayStartOrNull(filters.specialFrom)
+        val specialToEpoch = when {
+            filters.specialTo.trim().isNotEmpty() ->
+                DateTimeUtil.parseDateToEpochDayEndOrNull(filters.specialTo)
+            specialFromEpoch != null ->
+                DateTimeUtil.nowEpochMillis() // To empty => current date
+            else -> null
+        }
+
+        if (specialFromEpoch != null) {
+            where += "u.specialDateEpoch IS NOT NULL AND u.specialDateEpoch >= ?"
+            args += specialFromEpoch
+        }
+        if (specialToEpoch != null) {
+            where += "u.specialDateEpoch IS NOT NULL AND u.specialDateEpoch <= ?"
+            args += specialToEpoch
+        }
+
+        if (where.isNotEmpty()) {
+            sql.append(" WHERE ")
+            sql.append(where.joinToString(" AND "))
+        }
+
+        sql.append(" GROUP BY u.publicUserId ")
+
+        // Type filter = AND semantics
+        if (filters.typesAnd.isNotEmpty()) {
+            val selected = filters.typesAnd.map { it.displayName }
+            val placeholders = selected.joinToString(",") { "?" }
+            sql.append(
+                """
+            HAVING COUNT(DISTINCT CASE WHEN s.type IN ($placeholders) THEN s.type END) = ?
+            """.trimIndent()
+            )
+//            args += selected
+//            selectedargs += selected.size
+
+            args.addAll(selected)   // ✅ adds each string as a separate arg
+            args.add(selected.size)
+        }
+
+        // ORDER BY
+//        sql.append(" ORDER BY u.isPinned DESC, ")
+//        sql.append(" ORDER BY u.isPinned DESC, (u.editedAtEpoch IS NULL) ASC, u.editedAtEpoch DESC, ...")
+        sql.append(" ORDER BY u.isPinned DESC, (u.editedAtEpoch DESC, ...")
+
+
+        // Date sort (all 3 options treated as editedAt desc; nulls last)
+        when (filters.dateSort) {
+            DateSortOption.CUSTOM_EDITED_DATE,
+            DateSortOption.RECENT_EDITED_DATE,
+            DateSortOption.LAST_UPDATED_DATE -> {
+                sql.append(" (u.editedAtEpoch IS NULL) ASC, u.editedAtEpoch DESC, ")
+            }
+        }
+
+        // Name sort
+        when (filters.nameSort) {
+            NameSortOption.A_Z -> sql.append(" u.nameNormalized ASC, ")
+            NameSortOption.Z_A -> sql.append(" u.nameNormalized DESC, ")
+        }
+
+        // Tie-breaker: createdAt (your “follow createdAt” rule)
+        sql.append(" u.createdAtEpoch ASC ")
+
+        val query = SimpleSQLiteQuery(sql.toString(), args.toTypedArray())
+
+        android.util.Log.d("FILTER_DEBUG", "SQL=\n$sql")
+        android.util.Log.d("FILTER_DEBUG", "ARGS=$args")
+
+        return userDao.pagingUsersWithTagsObserved(query)
+    }
+
 
 }
