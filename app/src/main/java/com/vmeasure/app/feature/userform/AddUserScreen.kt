@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowBack
@@ -14,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 //import androidx.compose.ui.text.input.KeyboardOptions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -23,7 +25,10 @@ import com.vmeasure.app.data.repository.UserRepositoryImpl
 import com.vmeasure.app.domain.model.TagType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.runtime.remember
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -301,24 +306,59 @@ private fun DateField(
     onValueChange: (String) -> Unit
 ) {
     var show by remember { mutableStateOf(false) }
+//    val interactionSource = remember { MutableInteractionSource() }
+    val interactionSource = remember { MutableInteractionSource() }
 
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp)) {
         Text(text = label, style = MaterialTheme.typography.labelLarge)
         Spacer(Modifier.height(6.dp))
-
-        OutlinedTextField(
-            value = value,
-            onValueChange = { },
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("dd/mm/yyyy") },
-            readOnly = true,
-            trailingIcon = {
-                IconButton(onClick = { show = true }) {
-                    Icon(Icons.Outlined.MoreVert, contentDescription = "Pick date")
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { show = true }
+        ) {
+            OutlinedTextField(
+                value = value,
+                onValueChange = { },
+                readOnly = true,
+//                enabled = false,
+                interactionSource = interactionSource,
+                modifier = Modifier
+                    .fillMaxWidth(),
+                placeholder = { Text("dd/mm/yyyy") },
+                trailingIcon = {
+                    Row {
+                        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+                            IconButton(
+                                onClick = { },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    Icons.Outlined.Clear,
+                                    contentDescription = "",
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
                 }
-            }
-        )
+            )
+        }
     }
+
+    // second icon
+//                    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+//                        IconButton(
+//                            onClick = { show = true },
+//                            modifier = Modifier.size(18.dp) // ripple now becomes small
+//                        ) {
+//                            Icon(
+//                                Icons.Outlined.MoreVert,
+//                                contentDescription = "Clear date",
+//                                modifier = Modifier.size(18.dp)
+//                            )
+//                        }
+//                    }
 
     if (show) {
         val datePickerState = rememberDatePickerState()

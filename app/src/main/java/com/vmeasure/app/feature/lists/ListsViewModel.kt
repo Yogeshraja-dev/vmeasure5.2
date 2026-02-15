@@ -10,6 +10,16 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
+import androidx.lifecycle.viewModelScope
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
+import androidx.paging.map
+import com.vmeasure.app.data.db.dao.UserWithTagsRow
+import com.vmeasure.app.data.repository.UserRepositoryImpl
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
+
 import androidx.paging.map
 import kotlinx.coroutines.flow.map
 class ListsViewModel(
@@ -28,9 +38,56 @@ class ListsViewModel(
 
     private val toggleJobs = mutableMapOf<String, Job>() // key: "<userId>:pin" or "<userId>:fav"
 
+    fun updateSearch(text: String) {
+        _uiState.update { it.copy(searchText = text) }
+    }
+
+    fun applyFilters(filters: ListFilters) {
+        _uiState.update { it.copy(filters = filters) }
+    }
+
+//    val usersPaging: Flow<PagingData<UserSummary>> =
+//        uiState
+//            .debounce(250)
+//            .distinctUntilChanged()
+//            .flatMapLatest { state ->
+//                Pager(
+//                    config = PagingConfig(
+//                        pageSize = 100,
+//                        prefetchDistance = 20,
+//                        enablePlaceholders = false
+//                    ),
+//                    pagingSourceFactory = {
+//                        repo.pagingUserRows(
+//                            search = state.searchText.trim().lowercase().ifEmpty { null },
+//                            nameSortAsc = state.nameSortAsc
+//                        )
+//                    }
+//                ).flow
+//            }
+//            .map { pagingData ->
+//                pagingData.map { row ->
+//                    val tags = row.tagsCsv
+//                        ?.split(",")
+//                        ?.map { it.trim() }
+//                        ?.filter { it.isNotEmpty() }
+//                        ?: emptyList()
+//
+//                    UserSummary(
+//                        publicUserId = row.publicUserId,
+//                        name = row.name,
+//                        isPinned = row.isPinned,
+//                        isFavorite = row.isFavorite,
+//                        createdAtEpoch = row.createdAtEpoch,
+//                        tags = tags
+//                    )
+//                }
+//            }
+//            .cachedIn(viewModelScope)
+
     val usersPaging: Flow<PagingData<UserSummary>> =
         uiState
-            .debounce(250)
+            .debounce(200)
             .distinctUntilChanged()
             .flatMapLatest { state ->
                 Pager(
@@ -42,30 +99,33 @@ class ListsViewModel(
                     pagingSourceFactory = {
                         repo.pagingUserRows(
                             search = state.searchText.trim().lowercase().ifEmpty { null },
-                            nameSortAsc = state.nameSortAsc
+                            filters = state.filters
                         )
                     }
                 ).flow
             }
             .map { pagingData ->
-                pagingData.map { row ->
-                    val tags = row.tagsCsv
-                        ?.split(",")
-                        ?.map { it.trim() }
-                        ?.filter { it.isNotEmpty() }
-                        ?: emptyList()
-
-                    UserSummary(
-                        publicUserId = row.publicUserId,
-                        name = row.name,
-                        isPinned = row.isPinned,
-                        isFavorite = row.isFavorite,
-                        createdAtEpoch = row.createdAtEpoch,
-                        tags = tags
-                    )
-                }
+                pagingData.map { row -> row.toSummary() }
             }
             .cachedIn(viewModelScope)
+
+    private fun UserWithTagsRow.toSummary(): UserSummary {
+        val tags = tagsCsv
+            ?.split(",")
+            ?.map { it.trim() }
+            ?.filter { it.isNotEmpty() }
+            ?: emptyList()
+
+        return UserSummary(
+            publicUserId = publicUserId,
+            name = name,
+            isPinned = isPinned,
+            isFavorite = isFavorite,
+            createdAtEpoch = createdAtEpoch,
+            editedAtEpoch = editedAtEpoch,
+            tags = tags
+        )
+    }
 
     fun onSearchChanged(text: String) {
         _uiState.update { it.copy(searchText = text) }
@@ -103,6 +163,8 @@ class ListsViewModel(
 
     fun onFilterClicked() {
         // Next milestone: open filter bottom sheet
+//        draftFilters = appliedFilters
+//        showFilters = true
     }
 
     private fun debouncedWrite(key: String, block: suspend () -> Unit) {

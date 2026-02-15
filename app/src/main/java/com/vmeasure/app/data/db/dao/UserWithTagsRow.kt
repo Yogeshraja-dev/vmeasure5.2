@@ -12,5 +12,6 @@ data class UserWithTagsRow(
     val isPinned: Boolean,
     val isFavorite: Boolean,
     val createdAtEpoch: Long,
+    val editedAtEpoch: Long?,
     val tagsCsv: String?
 )

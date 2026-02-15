@@ -34,8 +34,10 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.foundation.clickable
 import com.vmeasure.app.core.navigation.Routes
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ListsScreen(
     navController: NavHostController,
@@ -55,6 +57,16 @@ fun ListsScreen(
     val pagingItems = vm.usersPaging.collectAsLazyPagingItems()
 
     val lifecycleOwner = LocalLifecycleOwner.current
+
+    var showFilters by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+// Current applied filters from VM:
+    val appliedFilters = uiState.filters
+
+// Draft filters for editing in sheet:
+    var draftFilters by remember(showFilters) { mutableStateOf(appliedFilters) }
+
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -125,7 +137,12 @@ fun ListsScreen(
                 Spacer(modifier = Modifier.width(10.dp))
 
                 IconButton(
-                    onClick = vm::onFilterClicked,
+//                    onClick = vm::onFilterClicked,
+                    onClick = {
+                        draftFilters = appliedFilters
+                        showFilters = true
+                        vm.onFilterClicked()
+                    },
                     modifier = Modifier
                         .size(44.dp)
                         .shadow(1.dp, RoundedCornerShape(12.dp))
@@ -192,6 +209,36 @@ fun ListsScreen(
             Icon(Icons.Filled.Add, contentDescription = "Add")
         }
     }
+
+    if (showFilters) {
+        ModalBottomSheet(
+            onDismissRequest = { showFilters = false },
+            sheetState = sheetState
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.8f) // 80% height
+            ) {
+                FiltersSheetContent(
+                    filters = draftFilters,
+                    onChange = { draftFilters = it },
+                    onApply = {
+                        vm.applyFilters(draftFilters)
+                        showFilters = false
+                    },
+                    onReset = {
+                        val reset = ListFilters()
+                        draftFilters = reset
+                        vm.applyFilters(reset)
+                        showFilters = false
+                    },
+                    onClose = { showFilters = false }
+                )
+            }
+        }
+    }
+
 }
 
 @Composable

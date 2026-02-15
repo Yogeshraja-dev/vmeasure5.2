@@ -1,18 +1,11 @@
 package com.vmeasure.app.data.repository
 
 import androidx.paging.PagingSource
-import androidx.paging.PagingState
 import com.vmeasure.app.core.util.DateTimeUtil
-import com.vmeasure.app.data.db.dao.SectionDao
-import com.vmeasure.app.data.db.dao.UserDao
 import com.vmeasure.app.data.db.dao.UserWithTagsRow
-//import com.vmeasure.app.data.db.entity.MeasurementSectionEntity
-import com.vmeasure.app.domain.model.UserSummary
 import com.vmeasure.app.domain.repository.UserRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-
-import androidx.room.withTransaction
 import com.vmeasure.app.core.util.IdGenerator
 import com.vmeasure.app.data.db.AppDatabase
 import com.vmeasure.app.data.db.entity.MeasurementSectionEntity
@@ -21,8 +14,10 @@ import com.vmeasure.app.feature.userform.SectionForm
 import kotlinx.coroutines.delay
 import com.vmeasure.app.feature.userform.UserFormUiState
 import androidx.room.withTransaction
-
 import androidx.sqlite.db.SimpleSQLiteQuery
+import com.vmeasure.app.feature.lists.DateSortOption
+import com.vmeasure.app.feature.lists.ListFilters
+import com.vmeasure.app.feature.lists.NameSortOption
 
 class UserRepositoryImpl(
 //    private val userDao: UserDao,
@@ -256,13 +251,137 @@ class UserRepositoryImpl(
         return out
     }
 
-    override fun pagingUserRows(search: String?, nameSortAsc: Boolean)
-            : PagingSource<Int, UserWithTagsRow> {
+//    override fun pagingUserRows(search: String?, nameSortAsc: Boolean)
+//            : PagingSource<Int, UserWithTagsRow> {
+//
+//        return userDao.pagingUsersWithTags(
+//            search = search?.trim()?.lowercase(),
+//            nameSortAsc = if (nameSortAsc) 1 else 0
+//        )
+//    }
 
-        return userDao.pagingUsersWithTags(
-            search = search?.trim()?.lowercase(),
-            nameSortAsc = if (nameSortAsc) 1 else 0
+    override fun pagingUserRows(search: String?, filters: ListFilters): PagingSource<Int, UserWithTagsRow> {
+        val sql = StringBuilder()
+        val args = mutableListOf<Any>()
+
+        sql.append(
+            """
+        SELECT 
+            u.publicUserId AS publicUserId,
+            u.name AS name,
+            u.nameNormalized AS nameNormalized,
+            u.isPinned AS isPinned,
+            u.isFavorite AS isFavorite,
+            u.createdAtEpoch AS createdAtEpoch,
+            u.editedAtEpoch AS editedAtEpoch,
+            GROUP_CONCAT(DISTINCT s.type) AS tagsCsv
+        FROM users u
+        LEFT JOIN measurement_sections s
+          ON s.publicUserId = u.publicUserId
+        """.trimIndent()
         )
+
+        val where = mutableListOf<String>()
+
+        // Search: name OR contact number, case-insensitive for nameNormalized
+        if (!search.isNullOrBlank()) {
+            where += """
+            (
+              u.nameNormalized LIKE '%' || ? || '%'
+              OR u.contactNumber LIKE '%' || ? || '%'
+            )
+        """.trimIndent()
+            val q = search.trim().lowercase()
+            args += q
+            args += q
+        }
+
+        if (filters.favouriteOnly) where += "u.isFavorite = 1"
+        if (filters.pinnedOnly) where += "u.isPinned = 1"
+
+        // --- Special Date filter (specialDateEpoch) ---
+        val specialFromEpoch = DateTimeUtil.parseDateToEpochDayStartOrNull(filters.specialFrom)
+        val specialToEpoch = when {
+            filters.specialTo.trim().isNotEmpty() -> DateTimeUtil.parseDateToEpochDayEndOrNull(filters.specialTo)
+            specialFromEpoch != null -> DateTimeUtil.nowEpochMillis() // To empty => today
+            else -> null
+        }
+
+        if (specialFromEpoch != null) {
+            where += "u.specialDateEpoch IS NOT NULL AND u.specialDateEpoch >= ?"
+            args += specialFromEpoch
+        }
+        if (specialToEpoch != null) {
+            where += "u.specialDateEpoch IS NOT NULL AND u.specialDateEpoch <= ?"
+            args += specialToEpoch
+        }
+
+        // --- Custom Edited Date filter (editedAtEpoch) ---
+        // Applies ONLY when dateSort = CUSTOM_EDITED_DATE
+        val editedFromEpoch =
+            if (filters.dateSort == DateSortOption.CUSTOM_EDITED_DATE)
+                DateTimeUtil.parseDateToEpochDayStartOrNull(filters.editedFrom)
+            else null
+
+        val editedToEpoch = when {
+            filters.dateSort != DateSortOption.CUSTOM_EDITED_DATE -> null
+            filters.editedTo.trim().isNotEmpty() -> DateTimeUtil.parseDateToEpochDayEndOrNull(filters.editedTo)
+            editedFromEpoch != null -> DateTimeUtil.nowEpochMillis() // To empty => today
+            else -> null
+        }
+
+        if (filters.dateSort == DateSortOption.CUSTOM_EDITED_DATE) {
+            if (editedFromEpoch != null) {
+                where += "u.editedAtEpoch IS NOT NULL AND u.editedAtEpoch >= ?"
+                args += editedFromEpoch
+            }
+            if (editedToEpoch != null) {
+                where += "u.editedAtEpoch IS NOT NULL AND u.editedAtEpoch <= ?"
+                args += editedToEpoch
+            }
+        }
+
+        if (where.isNotEmpty()) {
+            sql.append(" WHERE ")
+            sql.append(where.joinToString(" AND "))
+        }
+
+        sql.append(" GROUP BY u.publicUserId ")
+
+        // Type AND filter: user must have ALL selected types
+        if (filters.typesAnd.isNotEmpty()) {
+            val selected = filters.typesAnd.map { it.displayName }
+            val placeholders = selected.joinToString(",") { "?" }
+            sql.append(
+                """
+            HAVING COUNT(DISTINCT CASE WHEN s.type IN ($placeholders) THEN s.type END) = ?
+            """.trimIndent()
+            )
+//            args += selected
+//            args += selected.size
+            args.addAll(selected)
+            args.add(selected.size)
+        }
+
+        // ORDER BY
+        // Pinned always on top
+        sql.append(" ORDER BY u.isPinned DESC, ")
+
+        // Date sort – all options sort by editedAt desc behavior
+        // IMPORTANT FIX: COALESCE makes new users (editedAt null) appear as recent by createdAt.
+        sql.append(" COALESCE(u.editedAtEpoch, u.createdAtEpoch) DESC, ")
+
+        // Name sort
+        when (filters.nameSort) {
+            NameSortOption.A_Z -> sql.append(" u.nameNormalized ASC, ")
+            NameSortOption.Z_A -> sql.append(" u.nameNormalized DESC, ")
+        }
+
+        // Tie-breaker: createdAt (your rule)
+        sql.append(" u.createdAtEpoch ASC ")
+
+        val query = SimpleSQLiteQuery(sql.toString(), args.toTypedArray())
+        return userDao.pagingUsersWithTagsObserved(query)
     }
 
 //    private class MappingPagingSource(

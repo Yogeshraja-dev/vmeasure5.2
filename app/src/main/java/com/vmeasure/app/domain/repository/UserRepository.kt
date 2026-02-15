@@ -5,13 +5,15 @@ import com.vmeasure.app.domain.model.UserSummary
 import com.vmeasure.app.data.db.dao.UserWithTagsRow
 import com.vmeasure.app.data.db.entity.MeasurementSectionEntity
 import com.vmeasure.app.data.db.entity.UserEntity
+import com.vmeasure.app.feature.lists.ListFilters
 import com.vmeasure.app.feature.userform.UserFormUiState
 import com.vmeasure.app.feature.userform.SectionForm
 
 interface UserRepository {
 //    fun pagingUserSummaries(search: String?, nameSortAsc: Boolean): PagingSource<Int, UserSummary>
 
-    fun pagingUserRows(search: String?, nameSortAsc: Boolean): PagingSource<Int, UserWithTagsRow>
+//    fun pagingUserRows(search: String?, nameSortAsc: Boolean): PagingSource<Int, UserWithTagsRow>
+fun pagingUserRows(search: String?, filters: ListFilters): PagingSource<Int, UserWithTagsRow>
     suspend fun setPinned(publicUserId: String, pinned: Boolean)
     suspend fun setFavorite(publicUserId: String, favorite: Boolean)
     suspend fun deleteUser(publicUserId: String)

@@ -3,10 +3,9 @@ package com.vmeasure.app.data.db.dao
 import androidx.paging.PagingSource
 import androidx.room.*
 import com.vmeasure.app.data.db.entity.UserEntity
-
 import androidx.room.RawQuery
 import androidx.sqlite.db.SupportSQLiteQuery
-
+import com.vmeasure.app.data.db.entity.MeasurementSectionEntity
 
 @Dao
 interface UserDao {
@@ -146,3 +145,30 @@ interface UserDao {
     )
 
 }
+//
+//listing page- pinned,
+//        reflected in view or edit user screen.
+//
+//        unnpined in edit user screen,
+//        not reflected in listing screen.
+//
+//        pinned in edit user screen,
+//        reflected in listing screen.
+//
+//        unpinned in listing screen,
+//        reflected in  view/edit screen.
+//
+//        -----
+//        fav in listing,
+//        reflected in view/edit
+//
+//        unfav in edit,
+//        not reflcted in listing.
+//
+//
+//        All the above solution is working. Thank you for that.
+//        After I did testing, I found some bugs.
+//        1. Pin/unpin activity in listing or view/edited screen not reflcted. Other edit data is reflected properly.
+//        2. Fav/unfavourite activity in listing or view/edit screen not reflcted. Other edit data is reflected properly.
+//        3. Filters-> Sort by name-> A-Z, Z-A is not working.
+//

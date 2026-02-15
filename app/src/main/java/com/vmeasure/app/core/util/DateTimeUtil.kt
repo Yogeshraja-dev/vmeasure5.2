@@ -5,6 +5,8 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import java.text.SimpleDateFormat
+import java.util.Date
 
 object DateTimeUtil {
     private val dateFmt = DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.ENGLISH)
@@ -36,6 +38,31 @@ object DateTimeUtil {
     fun formatDateTime(epochMillis: Long): String {
         val sdf = java.text.SimpleDateFormat("dd/MM/yyyy hh:mm a", java.util.Locale.US)
         return sdf.format(java.util.Date(epochMillis))
+    }
+
+    fun parseDateToEpochDayStartOrNull(ddMMyyyy: String): Long? {
+        val t = ddMMyyyy.trim()
+        if (t.isEmpty()) return null
+        return runCatching { parseDateToEpochDayStart(t) }.getOrNull()
+    }
+
+    fun parseDateToEpochDayEndOrNull(ddMMyyyy: String): Long? {
+        val start = parseDateToEpochDayStartOrNull(ddMMyyyy) ?: return null
+        return start + (24L * 60L * 60L * 1000L) - 1L
+    }
+
+    fun formatDate1(epochMillis: Long): String {
+        val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.US)
+        return sdf.format(Date(epochMillis))
+    }
+
+    // Parse dd/MM/yyyy into start-of-day epoch millis
+    fun parseDateToEpochDayStart1(ddMMyyyy: String): Long {
+        val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.US)
+        sdf.isLenient = false
+        val d = sdf.parse(ddMMyyyy.trim()) ?: throw IllegalArgumentException("Invalid date")
+        // Date() already midnight in default timezone for parsed day
+        return d.time
     }
 
 }
