@@ -782,4 +782,13 @@ class UserRepositoryImpl(
                 (old.kids_pantWaist ?: "") != (newE.kids_pantWaist ?: "")
     }
 
+    suspend fun setUserPinned(publicUserId: String, pinned: Boolean) {
+        userDao.setPinned(publicUserId, pinned)
+    }
+
+    suspend fun setUserFavorite(publicUserId: String, favorite: Boolean) {
+        userDao.setFavorite(publicUserId, favorite)
+    }
+
+
 }

@@ -174,8 +174,8 @@ fun ListsScreen(
                         tags = user.tags,
                         isPinned = isPinned,
                         isFavorite = isFav,
-                        onTogglePinned = { vm.onTogglePinned(user) },
-                        onToggleFavorite = { vm.onToggleFavorite(user) },
+                        onTogglePinned = { vm.onTogglePinned(user.publicUserId, !user.isPinned) },
+                        onToggleFavorite = { vm.onToggleFavorite(user.publicUserId, !user.isFavorite) },
                         onDelete = { vm.onDeleteUser(user) },
                         onShare = { vm.onShareUser(user) },
                         onOpenDetails = { navController.navigate(Routes.details(user.publicUserId)) }

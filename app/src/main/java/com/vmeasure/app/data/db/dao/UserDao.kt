@@ -144,31 +144,10 @@ interface UserDao {
         editedAtEpoch: Long?
     )
 
+    @Query("UPDATE users SET isPinned = :isPinned WHERE publicUserId = :publicUserId")
+    suspend fun setPinned(publicUserId: String, isPinned: Boolean): Int
+
+    @Query("UPDATE users SET isFavorite = :isFavorite WHERE publicUserId = :publicUserId")
+    suspend fun setFavorite(publicUserId: String, isFavorite: Boolean): Int
+
 }
-//
-//listing page- pinned,
-//        reflected in view or edit user screen.
-//
-//        unnpined in edit user screen,
-//        not reflected in listing screen.
-//
-//        pinned in edit user screen,
-//        reflected in listing screen.
-//
-//        unpinned in listing screen,
-//        reflected in  view/edit screen.
-//
-//        -----
-//        fav in listing,
-//        reflected in view/edit
-//
-//        unfav in edit,
-//        not reflcted in listing.
-//
-//
-//        All the above solution is working. Thank you for that.
-//        After I did testing, I found some bugs.
-//        1. Pin/unpin activity in listing or view/edited screen not reflcted. Other edit data is reflected properly.
-//        2. Fav/unfavourite activity in listing or view/edit screen not reflcted. Other edit data is reflected properly.
-//        3. Filters-> Sort by name-> A-Z, Z-A is not working.
-//

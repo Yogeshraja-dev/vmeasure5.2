@@ -46,45 +46,6 @@ class ListsViewModel(
         _uiState.update { it.copy(filters = filters) }
     }
 
-//    val usersPaging: Flow<PagingData<UserSummary>> =
-//        uiState
-//            .debounce(250)
-//            .distinctUntilChanged()
-//            .flatMapLatest { state ->
-//                Pager(
-//                    config = PagingConfig(
-//                        pageSize = 100,
-//                        prefetchDistance = 20,
-//                        enablePlaceholders = false
-//                    ),
-//                    pagingSourceFactory = {
-//                        repo.pagingUserRows(
-//                            search = state.searchText.trim().lowercase().ifEmpty { null },
-//                            nameSortAsc = state.nameSortAsc
-//                        )
-//                    }
-//                ).flow
-//            }
-//            .map { pagingData ->
-//                pagingData.map { row ->
-//                    val tags = row.tagsCsv
-//                        ?.split(",")
-//                        ?.map { it.trim() }
-//                        ?.filter { it.isNotEmpty() }
-//                        ?: emptyList()
-//
-//                    UserSummary(
-//                        publicUserId = row.publicUserId,
-//                        name = row.name,
-//                        isPinned = row.isPinned,
-//                        isFavorite = row.isFavorite,
-//                        createdAtEpoch = row.createdAtEpoch,
-//                        tags = tags
-//                    )
-//                }
-//            }
-//            .cachedIn(viewModelScope)
-
     val usersPaging: Flow<PagingData<UserSummary>> =
         uiState
             .debounce(200)
@@ -131,19 +92,31 @@ class ListsViewModel(
         _uiState.update { it.copy(searchText = text) }
     }
 
-    fun onTogglePinned(user: UserSummary) {
-        val newValue = !(overrideOf(user.publicUserId)?.isPinned ?: user.isPinned)
-        setOverride(user.publicUserId) { it.copy(isPinned = newValue) }
-        debouncedWrite(key = "${user.publicUserId}:pin") {
-            repo.setPinned(user.publicUserId, newValue)
+//    fun onTogglePinned(user: UserSummary) {
+//        val newValue = !(overrideOf(user.publicUserId)?.isPinned ?: user.isPinned)
+//        setOverride(user.publicUserId) { it.copy(isPinned = newValue) }
+//        debouncedWrite(key = "${user.publicUserId}:pin") {
+//            repo.setPinned(user.publicUserId, newValue)
+//        }
+//    }
+//
+//    fun onToggleFavorite(user: UserSummary) {
+//        val newValue = !(overrideOf(user.publicUserId)?.isFavorite ?: user.isFavorite)
+//        setOverride(user.publicUserId) { it.copy(isFavorite = newValue) }
+//        debouncedWrite(key = "${user.publicUserId}:fav") {
+//            repo.setFavorite(user.publicUserId, newValue)
+//        }
+//    }
+
+    fun onTogglePinned(publicUserId: String, newValue: Boolean) {
+        viewModelScope.launch {
+            repo.setPinned(publicUserId, newValue)
         }
     }
 
-    fun onToggleFavorite(user: UserSummary) {
-        val newValue = !(overrideOf(user.publicUserId)?.isFavorite ?: user.isFavorite)
-        setOverride(user.publicUserId) { it.copy(isFavorite = newValue) }
-        debouncedWrite(key = "${user.publicUserId}:fav") {
-            repo.setFavorite(user.publicUserId, newValue)
+    fun onToggleFavorite(publicUserId: String, newValue: Boolean) {
+        viewModelScope.launch {
+            repo.setFavorite(publicUserId, newValue)
         }
     }
 
