@@ -15,9 +15,10 @@ import kotlinx.coroutines.delay
 import com.vmeasure.app.feature.userform.UserFormUiState
 import androidx.room.withTransaction
 import androidx.sqlite.db.SimpleSQLiteQuery
-import com.vmeasure.app.feature.lists.DateSortOption
+//import com.vmeasure.app.feature.lists.DateSortOption
 import com.vmeasure.app.feature.lists.ListFilters
-import com.vmeasure.app.feature.lists.NameSortOption
+//import com.vmeasure.app.feature.lists.NameSortOption
+import com.vmeasure.app.feature.lists.SortOption
 
 class UserRepositoryImpl(
 //    private val userDao: UserDao,
@@ -319,18 +320,18 @@ class UserRepositoryImpl(
         // --- Custom Edited Date filter (editedAtEpoch) ---
         // Applies ONLY when dateSort = CUSTOM_EDITED_DATE
         val editedFromEpoch =
-            if (filters.dateSort == DateSortOption.CUSTOM_EDITED_DATE)
+            if (filters.sort == SortOption.CUSTOM_EDITED_DATE)
                 DateTimeUtil.parseDateToEpochDayStartOrNull(filters.editedFrom)
             else null
 
         val editedToEpoch = when {
-            filters.dateSort != DateSortOption.CUSTOM_EDITED_DATE -> null
+            filters.sort != SortOption.CUSTOM_EDITED_DATE -> null
             filters.editedTo.trim().isNotEmpty() -> DateTimeUtil.parseDateToEpochDayEndOrNull(filters.editedTo)
             editedFromEpoch != null -> DateTimeUtil.nowEpochMillis() // To empty => today
             else -> null
         }
 
-        if (filters.dateSort == DateSortOption.CUSTOM_EDITED_DATE) {
+        if (filters.sort == SortOption.CUSTOM_EDITED_DATE) {
             if (editedFromEpoch != null) {
                 where += "u.editedAtEpoch IS NOT NULL AND u.editedAtEpoch >= ?"
                 args += editedFromEpoch
@@ -367,28 +368,56 @@ class UserRepositoryImpl(
         // Pinned always on top
         sql.append(" ORDER BY u.isPinned DESC, ")
 
-        when (filters.dateSort) {
-            DateSortOption.RECENT_EDITED_DATE -> {
-                sql.append(" COALESCE(u.editedAtEpoch, u.createdAtEpoch) DESC, ")
-            }
-            DateSortOption.LAST_UPDATED_DATE -> {
-                // opposite order compared to RECENT_EDITED_DATE
-                sql.append(" COALESCE(u.editedAtEpoch, u.createdAtEpoch) ASC, ")
-            }
-            DateSortOption.CUSTOM_EDITED_DATE -> {
-                // within custom range, show newest first
-                sql.append(" COALESCE(u.editedAtEpoch, u.createdAtEpoch) DESC, ")
-            }
-        }
+//        when (filters.dateSort) {
+//            DateSortOption.RECENT_EDITED_DATE -> {
+//                sql.append(" COALESCE(u.editedAtEpoch, u.createdAtEpoch) DESC, ")
+//            }
+//            DateSortOption.LAST_UPDATED_DATE -> {
+//                // opposite order compared to RECENT_EDITED_DATE
+//                sql.append(" COALESCE(u.editedAtEpoch, u.createdAtEpoch) ASC, ")
+//            }
+//            DateSortOption.CUSTOM_EDITED_DATE -> {
+//                // within custom range, show newest first
+//                sql.append(" COALESCE(u.editedAtEpoch, u.createdAtEpoch) DESC, ")
+//            }
+//        }
 
         // Date sort – all options sort by editedAt desc behavior
         // IMPORTANT FIX: COALESCE makes new users (editedAt null) appear as recent by createdAt.
-        sql.append(" COALESCE(u.editedAtEpoch, u.createdAtEpoch) DESC, ")
+//        sql.append(" COALESCE(u.editedAtEpoch, u.createdAtEpoch) DESC, ")
 
         // Name sort
-        when (filters.nameSort) {
-            NameSortOption.A_Z -> sql.append(" u.nameNormalized ASC, ")
-            NameSortOption.Z_A -> sql.append(" u.nameNormalized DESC, ")
+//        when (filters.nameSort) {
+//            NameSortOption.A_Z -> sql.append(" u.nameNormalized ASC, ")
+//            NameSortOption.Z_A -> sql.append(" u.nameNormalized DESC, ")
+//        }
+
+        when (filters.sort) {
+            SortOption.RECENT_EDITED_DATE -> {
+                sql.append(" COALESCE(u.editedAtEpoch, u.createdAtEpoch) DESC, ")
+                sql.append(" u.nameNormalized ASC, ")
+            }
+
+            SortOption.LAST_UPDATED_DATE -> {
+                sql.append(" COALESCE(u.editedAtEpoch, u.createdAtEpoch) ASC, ")
+                sql.append(" u.nameNormalized ASC, ")
+            }
+
+            SortOption.CUSTOM_EDITED_DATE -> {
+                sql.append(" COALESCE(u.editedAtEpoch, u.createdAtEpoch) DESC, ")
+                sql.append(" u.nameNormalized ASC, ")
+            }
+
+            SortOption.A_Z -> {
+                sql.append(" u.nameNormalized ASC, ")
+                // add a stable secondary ordering so paging is deterministic
+                sql.append(" COALESCE(u.editedAtEpoch, u.createdAtEpoch) DESC, ")
+            }
+
+            SortOption.Z_A -> {
+                sql.append(" u.nameNormalized DESC, ")
+                sql.append(" COALESCE(u.editedAtEpoch, u.createdAtEpoch) DESC, ")
+            }
         }
 
         // Tie-breaker: createdAt (your rule)

@@ -54,22 +54,59 @@ fun FiltersSheetContent(
                 .padding(horizontal = 18.dp, vertical = 12.dp)
         ) {
 
-            Text("Sort by Date", style = MaterialTheme.typography.titleMedium)
+//            Text("Sort by Date", style = MaterialTheme.typography.titleMedium)
+//            Spacer(Modifier.height(8.dp))
+
+//            DateSortRadio(
+//                label = "Custom edited date",
+//                selected = filters.dateSort == DateSortOption.CUSTOM_EDITED_DATE,
+//                onSelect = { onChange(filters.copy(dateSort = DateSortOption.CUSTOM_EDITED_DATE)) }
+//            )
+
+//            DateSortRadio(
+//                label = "Recent edited date",
+//                selected = filters.dateSort == DateSortOption.RECENT_EDITED_DATE,
+//                onSelect = {
+//                    onChange(
+//                        filters.copy(
+//                            dateSort = DateSortOption.RECENT_EDITED_DATE,
+//                            editedFrom = "",
+//                            editedTo = ""
+//                        )
+//                    )
+//                }
+//            )
+
+//            DateSortRadio(
+//                label = "Last updated date",
+//                selected = filters.dateSort == DateSortOption.LAST_UPDATED_DATE,
+//                onSelect = {
+//                    onChange(
+//                        filters.copy(
+//                            dateSort = DateSortOption.LAST_UPDATED_DATE,
+//                            editedFrom = "",
+//                            editedTo = ""
+//                        )
+//                    )
+//                }
+//            )
+
+            Text("Sort by", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(8.dp))
 
-            DateSortRadio(
+            SortRadio(
                 label = "Custom edited date",
-                selected = filters.dateSort == DateSortOption.CUSTOM_EDITED_DATE,
-                onSelect = { onChange(filters.copy(dateSort = DateSortOption.CUSTOM_EDITED_DATE)) }
+                selected = filters.sort == SortOption.CUSTOM_EDITED_DATE,
+                onSelect = { onChange(filters.copy(sort = SortOption.CUSTOM_EDITED_DATE)) }
             )
 
-            DateSortRadio(
+            SortRadio(
                 label = "Recent edited date",
-                selected = filters.dateSort == DateSortOption.RECENT_EDITED_DATE,
+                selected = filters.sort == SortOption.RECENT_EDITED_DATE,
                 onSelect = {
                     onChange(
                         filters.copy(
-                            dateSort = DateSortOption.RECENT_EDITED_DATE,
+                            sort = SortOption.RECENT_EDITED_DATE,
                             editedFrom = "",
                             editedTo = ""
                         )
@@ -77,13 +114,13 @@ fun FiltersSheetContent(
                 }
             )
 
-            DateSortRadio(
+            SortRadio(
                 label = "Last updated date",
-                selected = filters.dateSort == DateSortOption.LAST_UPDATED_DATE,
+                selected = filters.sort == SortOption.LAST_UPDATED_DATE,
                 onSelect = {
                     onChange(
                         filters.copy(
-                            dateSort = DateSortOption.LAST_UPDATED_DATE,
+                            sort = SortOption.LAST_UPDATED_DATE,
                             editedFrom = "",
                             editedTo = ""
                         )
@@ -91,7 +128,36 @@ fun FiltersSheetContent(
                 }
             )
 
-            if (filters.dateSort == DateSortOption.CUSTOM_EDITED_DATE) {
+            SortRadio(
+                label = "A–Z",
+                selected = filters.sort == SortOption.A_Z,
+                onSelect = {
+                    onChange(
+                        filters.copy(
+                            sort = SortOption.A_Z,
+                            editedFrom = "",
+                            editedTo = ""
+                        )
+                    )
+                }
+            )
+
+            SortRadio(
+                label = "Z–A",
+                selected = filters.sort == SortOption.Z_A,
+                onSelect = {
+                    onChange(
+                        filters.copy(
+                            sort = SortOption.Z_A,
+                            editedFrom = "",
+                            editedTo = ""
+                        )
+                    )
+                }
+            )
+
+
+            if (filters.sort == SortOption.CUSTOM_EDITED_DATE) {
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     DatePickerField(
@@ -109,17 +175,17 @@ fun FiltersSheetContent(
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+//            Spacer(Modifier.height(16.dp))
+//
+//            Text("Sorting by name", style = MaterialTheme.typography.titleMedium)
+//            Spacer(Modifier.height(8.dp))
 
-            Text("Sorting by name", style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(8.dp))
-
-            RadioRow("A–Z", filters.nameSort == NameSortOption.A_Z) {
-                onChange(filters.copy(nameSort = NameSortOption.A_Z))
-            }
-            RadioRow("Z–A", filters.nameSort == NameSortOption.Z_A) {
-                onChange(filters.copy(nameSort = NameSortOption.Z_A))
-            }
+//            RadioRow("A–Z", filters.nameSort == NameSortOption.A_Z) {
+//                onChange(filters.copy(nameSort = NameSortOption.A_Z))
+//            }
+//            RadioRow("Z–A", filters.nameSort == NameSortOption.Z_A) {
+//                onChange(filters.copy(nameSort = NameSortOption.Z_A))
+//            }
 
             Spacer(Modifier.height(16.dp))
 
@@ -204,8 +270,20 @@ fun FiltersSheetContent(
     }
 }
 
+//@Composable
+//private fun DateSortRadio(label: String, selected: Boolean, onSelect: () -> Unit) {
+//    Row(
+//        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+//        verticalAlignment = Alignment.CenterVertically
+//    ) {
+//        RadioButton(selected = selected, onClick = onSelect)
+//        Spacer(Modifier.width(8.dp))
+//        Text(label)
+//    }
+//}
+
 @Composable
-private fun DateSortRadio(label: String, selected: Boolean, onSelect: () -> Unit) {
+private fun SortRadio(label: String, selected: Boolean, onSelect: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -215,6 +293,7 @@ private fun DateSortRadio(label: String, selected: Boolean, onSelect: () -> Unit
         Text(label)
     }
 }
+
 
 @Composable
 private fun RadioRow(label: String, selected: Boolean, onSelect: () -> Unit) {

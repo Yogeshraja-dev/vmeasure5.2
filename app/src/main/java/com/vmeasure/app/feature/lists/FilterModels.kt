@@ -2,20 +2,29 @@ package com.vmeasure.app.feature.lists
 
 import com.vmeasure.app.domain.model.TagType
 
-enum class DateSortOption {
+//enum class DateSortOption {
+//    CUSTOM_EDITED_DATE,
+//    RECENT_EDITED_DATE,
+//    LAST_UPDATED_DATE
+//}
+//
+//enum class NameSortOption {
+//    A_Z,
+//    Z_A
+//}
+
+enum class SortOption {
     CUSTOM_EDITED_DATE,
     RECENT_EDITED_DATE,
-    LAST_UPDATED_DATE
-}
-
-enum class NameSortOption {
+    LAST_UPDATED_DATE,
     A_Z,
     Z_A
 }
 
 data class ListFilters(
-    val dateSort: DateSortOption = DateSortOption.RECENT_EDITED_DATE,
-    val nameSort: NameSortOption = NameSortOption.A_Z,
+//    val dateSort: DateSortOption = DateSortOption.RECENT_EDITED_DATE,
+//    val nameSort: NameSortOption = NameSortOption.A_Z,
+    val sort: SortOption = SortOption.RECENT_EDITED_DATE,
 
     // Type filter = AND semantics
     val typesAnd: Set<TagType> = emptySet(),
