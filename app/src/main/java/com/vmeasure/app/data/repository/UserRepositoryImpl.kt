@@ -367,6 +367,20 @@ class UserRepositoryImpl(
         // Pinned always on top
         sql.append(" ORDER BY u.isPinned DESC, ")
 
+        when (filters.dateSort) {
+            DateSortOption.RECENT_EDITED_DATE -> {
+                sql.append(" COALESCE(u.editedAtEpoch, u.createdAtEpoch) DESC, ")
+            }
+            DateSortOption.LAST_UPDATED_DATE -> {
+                // opposite order compared to RECENT_EDITED_DATE
+                sql.append(" COALESCE(u.editedAtEpoch, u.createdAtEpoch) ASC, ")
+            }
+            DateSortOption.CUSTOM_EDITED_DATE -> {
+                // within custom range, show newest first
+                sql.append(" COALESCE(u.editedAtEpoch, u.createdAtEpoch) DESC, ")
+            }
+        }
+
         // Date sort – all options sort by editedAt desc behavior
         // IMPORTANT FIX: COALESCE makes new users (editedAt null) appear as recent by createdAt.
         sql.append(" COALESCE(u.editedAtEpoch, u.createdAtEpoch) DESC, ")

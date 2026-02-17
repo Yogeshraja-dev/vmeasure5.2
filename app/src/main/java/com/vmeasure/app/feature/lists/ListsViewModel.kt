@@ -9,7 +9,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-
 import androidx.lifecycle.viewModelScope
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
@@ -19,6 +18,9 @@ import com.vmeasure.app.data.db.dao.UserWithTagsRow
 import com.vmeasure.app.data.repository.UserRepositoryImpl
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import androidx.lifecycle.viewModelScope
+import androidx.paging.cachedIn
+
 
 import androidx.paging.map
 import kotlinx.coroutines.flow.map
