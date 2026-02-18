@@ -34,4 +34,15 @@ interface SectionDao {
         """
     )
     suspend fun getTypesForUser(publicUserId: String): List<String>
+
+    @Query("SELECT * FROM measurement_sections")
+    suspend fun getAllSections(): List<com.vmeasure.app.data.db.entity.MeasurementSectionEntity>
+
+//    @Query("SELECT * FROM measurement_sections WHERE publicUserId = :publicUserId")
+//    suspend fun getAllForUser(publicUserId: String): List<com.vmeasure.app.data.db.entity.MeasurementSectionEntity>
+
+    @Query("SELECT * FROM measurement_sections WHERE publicUserId = :publicUserId")
+    suspend fun getAllForUserUnordered(publicUserId: String): List<MeasurementSectionEntity>
+
+
 }

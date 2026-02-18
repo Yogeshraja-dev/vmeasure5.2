@@ -3,6 +3,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("kotlin-kapt")
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.0.0"
 }
 
 android {
@@ -97,6 +98,23 @@ dependencies {
 
     // Icons
     implementation("androidx.compose.material:material-icons-extended")
+
+    // AuthorizationClient / Identity (Google Play services)
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
+
+    // Coroutines
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+
+    // JSON (kotlinx serialization)
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+
+    // DataStore (store folderId)
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
+
+//    implementation("com.google.apis:google-api-services-drive:v3-rev20220815-2.0.0")
+//    implementation("com.google.api-client:google-api-client-android:1.34.1")
+//    implementation("com.google.http-client:google-http-client-gson:1.42.3")
+
 }
 
 //existing code

@@ -150,4 +150,11 @@ interface UserDao {
     @Query("UPDATE users SET isFavorite = :isFavorite WHERE publicUserId = :publicUserId")
     suspend fun setFavorite(publicUserId: String, isFavorite: Boolean): Int
 
+    @Query("SELECT * FROM users")
+    suspend fun getAllUsers(): List<com.vmeasure.app.data.db.entity.UserEntity>
+
+    @Query("UPDATE users SET editedAtEpoch = :editedAtEpoch WHERE publicUserId = :publicUserId")
+    suspend fun touchEditedAt(publicUserId: String, editedAtEpoch: Long): Int
+
+
 }
