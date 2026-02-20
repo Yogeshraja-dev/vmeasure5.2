@@ -11,10 +11,26 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.vmeasure.app.core.navigation.AppNavGraph
 import com.vmeasure.app.core.navigation.bottomNavItems
+import com.vmeasure.app.feature.settings.DriveSyncViewModel
 
 class MainActivity : ComponentActivity() {
+//    val db = (application as App).db           // or however you access your DB
+//    val driveSyncRepo = (application as App)
+//    val driveSyncVm = DriveSyncViewModel(
+//        activity = this,
+//        repo = driveSyncRepo
+//    )
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        val app = application as App
+        val driveSyncVm = DriveSyncViewModel(
+            activity = this,
+            repo = app.driveSyncRepo
+        )
+
+        com.vmeasure.app.debug.SignDebug.logSigningSha1(this)
 
         setContent {
             MaterialTheme {
@@ -46,7 +62,10 @@ class MainActivity : ComponentActivity() {
                     }
                 ) { padding ->
                     Surface(modifier = Modifier.padding(padding)) {
-                        AppNavGraph(navController = navController)
+                        AppNavGraph(
+                            navController = navController,
+//                            onRouteChanged = { currentRoute = it },
+                            driveSyncVm = driveSyncVm,)
                     }
                 }
             }

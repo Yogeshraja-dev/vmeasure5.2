@@ -1,6 +1,8 @@
 package com.vmeasure.app.core.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -13,9 +15,14 @@ import androidx.navigation.NavType
 //import androidx.navigation.compose.navArgument
 import com.vmeasure.app.feature.details.DetailsScreen
 import androidx.navigation.navArgument
+import com.vmeasure.app.feature.settings.DriveSyncViewModel
+import com.vmeasure.app.sync.drive.DriveSyncRepository
+
 @Composable
 fun AppNavGraph(
-    navController: NavHostController
+    navController: NavHostController,
+//    onRouteChanged: (String) -> Unit,
+    driveSyncVm: DriveSyncViewModel
 ) {
     NavHost(
         navController = navController,
@@ -42,7 +49,25 @@ fun AppNavGraph(
             )
         }
 
-        composable(Routes.SETTINGS) { SettingsScreen() }
+        composable(Routes.SETTINGS) { SettingsScreen(vm = driveSyncVm) }
+//        composable(Routes.SETTINGS) {
+//
+//            val context = LocalContext.current
+//            val activity = context as Activity
+//
+//            val repo = remember {
+//                DriveSyncRepository()
+//            }
+//
+//            val vm: DriveSyncViewModel = viewModel(
+//                factory = DriveSyncViewModelFactory(
+//                    activity = activity,
+//                    repo = repo
+//                )
+//            )
+//
+//            SettingsScreen(vm = vm)
+//        }
         composable(Routes.CALENDAR) { CalendarScreen() }
         composable(Routes.PROFILE) { ProfileScreen() }
 

@@ -150,4 +150,13 @@ interface UserDao {
     @Query("UPDATE users SET isFavorite = :isFavorite WHERE publicUserId = :publicUserId")
     suspend fun setFavorite(publicUserId: String, isFavorite: Boolean): Int
 
+    @Query("SELECT * FROM users")
+    suspend fun getAllUsers(): List<com.vmeasure.app.data.db.entity.UserEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOrReplace(user: com.vmeasure.app.data.db.entity.UserEntity)
+
+//    @Update
+//    suspend fun update(user: com.vmeasure.app.data.db.entity.UserEntity)
+
 }

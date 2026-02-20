@@ -34,4 +34,17 @@ interface SectionDao {
         """
     )
     suspend fun getTypesForUser(publicUserId: String): List<String>
+
+    @Query("SELECT * FROM measurement_sections")
+    suspend fun getAllSections(): List<com.vmeasure.app.data.db.entity.MeasurementSectionEntity>
+
+    @Query("SELECT COUNT(*) FROM measurement_sections WHERE sectionId = :sectionId")
+    suspend fun countBySectionId(sectionId: String): Int
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOrReplace(section: com.vmeasure.app.data.db.entity.MeasurementSectionEntity)
+
+//    @Update
+//    suspend fun update(section: com.vmeasure.app.data.db.entity.MeasurementSectionEntity)
+
 }
