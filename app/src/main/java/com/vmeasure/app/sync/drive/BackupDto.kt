@@ -5,7 +5,8 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class BackupFileDto(
     val exportedAtEpoch: Long,
-    val users: List<UserDto>
+    val users: List<UserDto>,
+    val deletedUserIds: List<String>
 )
 
 @Serializable
@@ -22,6 +23,8 @@ data class UserDto(
     val location: String = "",
     val createdAtEpoch: Long,
     val editedAtEpoch: Long? = null,
+    val isDeleted : Boolean = false,
+    val deletedAtEpoch : Long? = null,
     val measurementSections: List<SectionDto> = emptyList()
 )
 

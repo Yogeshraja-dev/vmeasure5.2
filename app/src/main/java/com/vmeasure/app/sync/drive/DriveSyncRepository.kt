@@ -20,6 +20,7 @@ class DriveSyncRepository(
 ) {
     private val userDao = db.userDao()
     private val sectionDao = db.sectionDao()
+    private val deletedUserDao = db.deletedUserDao()
 
     private val ROOT_FOLDER_NAME = "vmeasureback"
     private val FILE_NAME = "vmeasure_backup.json"
@@ -31,13 +32,14 @@ class DriveSyncRepository(
 
         val users = userDao.getAllUsers()
         val allSections = sectionDao.getAllSections().groupBy { it.publicUserId }
-
+        val deletedIds = deletedUserDao.getAllDeletedIds()
         val dto = BackupFileDto(
             exportedAtEpoch = System.currentTimeMillis(),
             users = users.map { u ->
                 val sec = allSections[u.publicUserId].orEmpty().sortedBy { it.createdAtEpoch }
                 u.toDto(sec)
-            }
+            },
+            deletedUserIds = deletedIds,
         )
 
         val bytes = json.encodeToString(BackupFileDto.serializer(), dto).toByteArray()
@@ -73,28 +75,112 @@ class DriveSyncRepository(
      * - If imported contains a new section -> add/replace by sectionId
      * - If sectionId collision occurs -> generate new id and append
      */
+//    private suspend fun mergeUserAndSections(imported: UserDto) {
+//        val existing = userDao.getByPublicId(imported.id)
+//
+//        val importedUserEntity = imported.toUserEntity()
+//
+//        if (existing == null) {
+//            userDao.insertOrReplace(importedUserEntity)
+//        } else {
+//            // prefer imported data
+//            userDao.update(importedUserEntity)
+//        }
+//
+//        val localSections = sectionDao.getAllForUser(imported.id)
+//        val localById = localSections.associateBy { it.sectionId }
+//
+//        imported.measurementSections.forEach { s ->
+//            val local = localById[s.id]
+//            if (local != null) {
+//                // replace existing values with imported
+//                sectionDao.update(s.toSectionEntity(imported.id))
+//            } else {
+//                // handle collision (in case sectionId is globally unique and already exists)
+//                var sectionId = s.id
+//                var tries = 0
+//                while (sectionDao.countBySectionId(sectionId) > 0) {
+//                    tries++
+//                    sectionId = generate6DigitId()
+//                    if (tries >= 10) break
+//                }
+//                sectionDao.insertOrReplace(s.toSectionEntity(imported.id, overrideSectionId = sectionId))
+//            }
+//        }
+//        // never delete local extra sections (rule satisfied)
+//    }
+
     private suspend fun mergeUserAndSections(imported: UserDto) {
-        val existing = userDao.getByPublicId(imported.id)
+        val localUser = userDao.getByPublicId(imported.id)
 
-        val importedUserEntity = imported.toUserEntity()
+        // -----------------------------
+        // 1) If imported says "deleted" -> mark local deleted and remove sections
+        // -----------------------------
+        if (imported.isDeleted) {
+            val now = System.currentTimeMillis()
+            val deletedAt = imported.deletedAtEpoch ?: now
+            val editedAt = imported.editedAtEpoch ?: deletedAt
 
-        if (existing == null) {
-            userDao.insertOrReplace(importedUserEntity)
-        } else {
-            // prefer imported data
-            userDao.update(importedUserEntity)
+            if (localUser == null) {
+                // Insert a tombstone user row so future imports don't resurrect this user.
+                // NOTE: This assumes your UserEntity supports isDeleted/deletedAtEpoch.
+                val tombstone = imported.toTombstoneUserEntity(
+                    fallbackCreatedAt = imported.createdAtEpoch.takeIf { it > 0L } ?: deletedAt,
+                    editedAtEpoch = editedAt,
+                    deletedAtEpoch = deletedAt
+                )
+                userDao.insertOrReplace(tombstone)
+            } else if (!localUser.isDeleted) {
+                // Mark existing local user as deleted
+                val tombstone = localUser.copy(
+                    isDeleted = true,
+                    deletedAtEpoch = deletedAt,
+                    editedAtEpoch = editedAt,
+                    isPinned = false,
+                    isFavorite = false
+                )
+                userDao.insertOrReplace(tombstone)
+            } else {
+                // local is already deleted -> do nothing
+            }
+
+            // Keep DB light: remove sections for deleted user
+            sectionDao.deleteAllForUser(imported.id)
+
+            // IMPORTANT: stop further merging for deleted users
+            return
         }
 
+        // -----------------------------
+        // 2) If local user is deleted -> NEVER resurrect
+        // -----------------------------
+        if (localUser != null && localUser.isDeleted) {
+            return
+        }
+
+        // -----------------------------
+        // 3) Active user: upsert user (prefer imported data)
+        // -----------------------------
+        val importedUserEntity = imported.toActiveUserEntity()
+
+        if (localUser == null) {
+            userDao.insertOrReplace(importedUserEntity)
+        } else {
+            // Prefer imported data (your merge rule)
+            userDao.update(importedUserEntity.copy(createdAtEpoch = localUser.createdAtEpoch))
+        }
+
+        // -----------------------------
+        // 4) Merge sections (same as your existing logic)
+        // -----------------------------
         val localSections = sectionDao.getAllForUser(imported.id)
         val localById = localSections.associateBy { it.sectionId }
 
         imported.measurementSections.forEach { s ->
             val local = localById[s.id]
             if (local != null) {
-                // replace existing values with imported
                 sectionDao.update(s.toSectionEntity(imported.id))
             } else {
-                // handle collision (in case sectionId is globally unique and already exists)
                 var sectionId = s.id
                 var tries = 0
                 while (sectionDao.countBySectionId(sectionId) > 0) {
@@ -102,10 +188,78 @@ class DriveSyncRepository(
                     sectionId = generate6DigitId()
                     if (tries >= 10) break
                 }
-                sectionDao.insertOrReplace(s.toSectionEntity(imported.id, overrideSectionId = sectionId))
+                sectionDao.insertOrReplace(
+                    s.toSectionEntity(
+                        publicUserId = imported.id,
+                        overrideSectionId = sectionId
+                    )
+                )
             }
         }
         // never delete local extra sections (rule satisfied)
+    }
+
+    private fun UserDto.toActiveUserEntity(): UserEntity {
+        val safeName = name.ifBlank { "Unknown" }
+        return UserEntity(
+            publicUserId = id,
+            name = safeName,
+            nameNormalized = safeName.trim().lowercase(),
+
+            dateOfBirth = dateOfBirth,
+            specialDate = specialDate,
+            specialDateEpoch = null,
+
+            contactNumber = contactNumber,
+            instagramId = instagramId,
+            otherMedia = otherMedia,
+            location = location,
+
+            isFavorite = isFavorite,
+            isPinned = isPinned,
+
+            createdAtEpoch = createdAtEpoch.takeIf { it > 0L } ?: System.currentTimeMillis(),
+            editedAtEpoch = editedAtEpoch,
+
+            // ✅ active
+            isDeleted = false,
+            deletedAtEpoch = null
+        )
+    }
+
+    /**
+     * Create a minimal "tombstone" row so deleted users don't resurrect on other devices.
+     */
+    private fun UserDto.toTombstoneUserEntity(
+        fallbackCreatedAt: Long,
+        editedAtEpoch: Long,
+        deletedAtEpoch: Long
+    ): UserEntity {
+        val safeName = name.ifBlank { "Deleted User" }
+        return UserEntity(
+            publicUserId = id,
+            name = safeName,
+            nameNormalized = safeName.trim().lowercase(),
+
+            dateOfBirth = "",
+            specialDate = "",
+            specialDateEpoch = null,
+
+            contactNumber = "",
+            instagramId = "",
+            otherMedia = "",
+            location = "",
+
+            isFavorite = false,
+            isPinned = false,
+
+            createdAtEpoch = fallbackCreatedAt,
+            editedAtEpoch = editedAtEpoch,
+
+            // ✅ deleted
+            isDeleted = true,
+            deletedAtEpoch = deletedAtEpoch
+        )
     }
 
     private suspend fun ensureRootFolder(accessToken: String): String {
@@ -212,7 +366,9 @@ class DriveSyncRepository(
             isFavorite = isFavorite,
             isPinned = isPinned,
             createdAtEpoch = createdAtEpoch,
-            editedAtEpoch = editedAtEpoch
+            editedAtEpoch = editedAtEpoch,
+            isDeleted = false,
+            deletedAtEpoch = null,
         )
     }
 

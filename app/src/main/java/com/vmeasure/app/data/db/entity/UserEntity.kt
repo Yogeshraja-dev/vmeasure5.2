@@ -44,5 +44,8 @@ data class UserEntity(
     val location: String,
 
     val createdAtEpoch: Long,
-    val editedAtEpoch: Long?
+    val editedAtEpoch: Long?,
+
+    val isDeleted : Boolean,
+    val deletedAtEpoch : Long?
 )

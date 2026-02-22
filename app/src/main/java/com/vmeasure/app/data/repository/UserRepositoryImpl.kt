@@ -1,3 +1,6 @@
+
+
+
 package com.vmeasure.app.data.repository
 
 import androidx.paging.PagingSource
@@ -15,10 +18,12 @@ import kotlinx.coroutines.delay
 import com.vmeasure.app.feature.userform.UserFormUiState
 import androidx.room.withTransaction
 import androidx.sqlite.db.SimpleSQLiteQuery
+import com.vmeasure.app.data.db.entity.DeletedUserEntity
 //import com.vmeasure.app.feature.lists.DateSortOption
 import com.vmeasure.app.feature.lists.ListFilters
 //import com.vmeasure.app.feature.lists.NameSortOption
 import com.vmeasure.app.feature.lists.SortOption
+import kotlin.Boolean
 
 class UserRepositoryImpl(
 //    private val userDao: UserDao,
@@ -28,6 +33,7 @@ class UserRepositoryImpl(
 
     private val userDao = db.userDao()
     private val sectionDao = db.sectionDao()
+    private val deletedUserDao = db.deletedUserDao()
 
 //    override fun pagingUserSummaries(search: String?, nameSortAsc: Boolean): PagingSource<Int, UserSummary> {
 //        val src = userDao.pagingUsersWithTags(
@@ -110,7 +116,20 @@ class UserRepositoryImpl(
     override suspend fun deleteUser(publicUserId: String) {
         withContext(Dispatchers.IO) {
             sectionDao.deleteAllForUser(publicUserId)
+//            userDao.deleteByPublicId(publicUserId)
+
             userDao.deleteByPublicId(publicUserId)
+            val now = System.currentTimeMillis()
+
+            deletedUserDao .insert(
+                DeletedUserEntity(
+                    publicUserId = publicUserId,
+                    deletedAtEpoch = now
+                )
+            )
+
+            userDao.deleteByPublicId(publicUserId)
+            sectionDao.deleteAllForUser(publicUserId)
         }
     }
 
@@ -507,7 +526,9 @@ class UserRepositoryImpl(
                     otherMedia = otherMedia.trim(),
                     location = location.trim(),
                     createdAtEpoch = now,
-                    editedAtEpoch = null
+                    editedAtEpoch = null,
+                    isDeleted = false,
+                    deletedAtEpoch = null,
                 )
 
                 userDao.insert(user)
@@ -835,3 +856,4 @@ class UserRepositoryImpl(
 
 
 }
+
